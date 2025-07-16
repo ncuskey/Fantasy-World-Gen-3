@@ -213,7 +213,7 @@ class MapGeneratorStepper {
     
     switch (stepIndex) {
       case 0: // Generate Heightmap
-        const heightmapResult = generateHeightmap('fantasy-world-seed', {
+        const heightmapResult = await generateHeightmap('fantasy-world-seed', {
           gridWidth: 32,
           gridHeight: 32,
           octaves: 6,
