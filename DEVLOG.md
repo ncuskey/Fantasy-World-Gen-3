@@ -239,16 +239,16 @@ renderHexGrid() {
 
 ## 2025-01-XX - Hex Grid Coordinate System Fixes
 
-### Pointy-topped Orientation Implementation
+### Flat-topped Orientation Implementation
 **Problem**: Hex grid visualization was not using the correct coordinate system
-**Solution**: Updated hexToPixel function to use proper pointy-topped orientation
+**Solution**: Updated hexToPixel function to use proper flat-topped orientation
 ```javascript
-// Pointy-topped orientation:
-//   x = sqrt(3) * size * (q + r/2)
-//   y = 3/2 * size * r
+// Flat-topped orientation:
+//   x = (3/2) * size * q
+//   y = sqrt(3) * size * (r + q/2)
 function hexToPixel({q, r}, size) {
-  const x = Math.sqrt(3) * size * (q + r / 2);
-  const y = (3/2) * size * r;
+  const x = (3/2) * size * q;
+  const y = (Math.sqrt(3) * size) * (r + q / 2);
   return { x, y };
 }
 ```
@@ -275,10 +275,10 @@ function createHexGrid(gridWidth, gridHeight) {
 **Problem**: Visualization used different coordinate system than heightmap generation
 **Solution**: Made visualization use exact same hexToPixel function
 ```javascript
-// Use the same hexToPixel function as the heightmap generation
+// Use the same hexToPixel function as the heightmap generation (flat-topped)
 function hexToPixel(hex, size) {
-  const x = Math.sqrt(3) * size * (hex.q + hex.r / 2);
-  const y = (3 / 2) * size * hex.r;
+  const x = (3/2) * size * hex.q;
+  const y = (Math.sqrt(3) * size) * (hex.r + hex.q / 2);
   return { x, y };
 }
 
@@ -326,7 +326,7 @@ import seedrandom from 'https://cdn.skypack.dev/seedrandom';
 
 ### Technical Achievements
 **✅ Hex Grid Visualization:**
-- Proper pointy-topped orientation
+- Proper flat-topped orientation
 - Correct coordinate system alignment
 - Color-coded elevation display
 - Interactive hover tooltips
@@ -356,7 +356,7 @@ import seedrandom from 'https://cdn.skypack.dev/seedrandom';
 - **Testing** - Vitest test suite with full coverage
 - **Browser Demo** - Fixed compatibility issues and added visualization
 - **Hex Grid System** - Proper coordinate system and visualization
-- **Pointy-topped Orientation** - Correct hex orientation and layout
+- **Flat-topped Orientation** - Correct hex orientation and layout
 
 ### In Progress 🔄
 - **Steps 2-8** - Placeholder implementations ready for development
@@ -404,8 +404,8 @@ import seedrandom from 'https://cdn.skypack.dev/seedrandom';
 - **Easy Setup**: No bundler configuration needed
 - **Production Ready**: Can switch to bundler later
 
-### Why Pointy-topped Orientation?
-- **Standard Convention**: Most hex grid implementations use pointy-topped
+### Why Flat-topped Orientation?
+- **Standard Convention**: Many hex grid implementations use flat-topped
 - **Visual Clarity**: Easier to distinguish individual hexes
 - **Coordinate System**: Matches standard axial coordinate conventions
 - **Consistency**: Aligns with mathematical hex grid theory

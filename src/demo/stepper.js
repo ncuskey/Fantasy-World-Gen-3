@@ -213,7 +213,7 @@ class MapGeneratorStepper {
     
     switch (stepIndex) {
       case 0: // Generate Heightmap
-        const heightmapResult = generateHeightmap('fantasy-world-seed', {
+        const heightmapResult = await generateHeightmap('fantasy-world-seed', {
           gridWidth: 32,
           gridHeight: 32,
           octaves: 6,
@@ -346,10 +346,10 @@ class MapGeneratorStepper {
     
     const hexSize = 15; // Size for visualization
     
-    // Use the same hexToPixel function as the heightmap generation
+    // Use the same hexToPixel function as the heightmap generation (flat-topped)
     function hexToPixel(hex, size) {
-      const x = Math.sqrt(3) * size * (hex.q + hex.r / 2);
-      const y = (3 / 2) * size * hex.r;
+      const x = (3/2) * size * hex.q;
+      const y = (Math.sqrt(3) * size) * (hex.r + hex.q / 2);
       return { x, y };
     }
     
@@ -390,10 +390,11 @@ class MapGeneratorStepper {
       const x = pixel.x - minX + hexSize;
       const y = pixel.y - minY + hexSize;
       
-      // Create hexagon path for pointy-topped orientation
+      // Create hexagon path for flat-topped orientation
       const points = [];
       for (let i = 0; i < 6; i++) {
-        const angle = (i * Math.PI) / 3;
+        // start at angle = 0° (flat side at top), then every 60°
+        const angle = (Math.PI / 180) * (60 * i);
         const px = x + hexSize * Math.cos(angle);
         const py = y + hexSize * Math.sin(angle);
         points.push(`${px},${py}`);

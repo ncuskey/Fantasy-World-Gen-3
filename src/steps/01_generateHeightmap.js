@@ -5,9 +5,22 @@
  * realistic terrain elevation data on a hex grid.
  */
 
-// Use CDN imports for browser compatibility
-import { createNoise2D } from 'https://cdn.skypack.dev/simplex-noise';
-import seedrandom from 'https://cdn.skypack.dev/seedrandom';
+// Conditional imports for Node.js vs Browser environments
+let createNoise2D, seedrandom;
+
+if (typeof window === 'undefined') {
+  // Node.js environment - use local modules
+  const simplexNoise = await import('simplex-noise');
+  const seedrandomModule = await import('seedrandom');
+  createNoise2D = simplexNoise.createNoise2D;
+  seedrandom = seedrandomModule.default;
+} else {
+  // Browser environment - use CDN imports
+  const simplexNoise = await import('https://cdn.skypack.dev/simplex-noise');
+  const seedrandomModule = await import('https://cdn.skypack.dev/seedrandom');
+  createNoise2D = simplexNoise.createNoise2D;
+  seedrandom = seedrandomModule.default;
+}
 
 /**
  * @typedef {{ q: number, r: number, s: number }} HexCell
@@ -50,17 +63,17 @@ function createHexGrid(gridWidth, gridHeight) {
 
 /**
  * Convert hex coordinates to pixel coordinates for noise sampling.
- * Pointy-topped orientation:
- *   x = sqrt(3) * size * (q + r/2)
- *   y = 3/2 * size * r
+ * Flat-topped orientation:
+ *   x = (3/2) * size * q
+ *   y = sqrt(3) * size * (r + q/2)
  *
  * @param {HexCell} hex - Hex cell coordinates
  * @param {number} hexSize - Size of each hex
  * @returns {{ x: number, y: number }} Pixel coordinates
  */
 function hexToPixel(hex, hexSize) {
-  const x = Math.sqrt(3) * hexSize * (hex.q + hex.r / 2);
-  const y = (3 / 2) * hexSize * hex.r;
+  const x = (3/2) * hexSize * hex.q;
+  const y = (Math.sqrt(3) * hexSize) * (hex.r + hex.q / 2);
   return { x, y };
 }
 
@@ -69,9 +82,9 @@ function hexToPixel(hex, hexSize) {
  *
  * @param {string} seed - Deterministic seed string
  * @param {HeightmapOptions} options - Generation options
- * @returns {{ hexGrid: HexCell[], heightMap: Float32Array }}
+ * @returns {Promise<{ hexGrid: HexCell[], heightMap: Float32Array }>}
  */
-export function generateHeightmap(seed, options) {
+export async function generateHeightmap(seed, options) {
   const {
     gridWidth = 64,
     gridHeight = 64,
