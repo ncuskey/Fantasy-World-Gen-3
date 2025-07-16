@@ -5,7 +5,8 @@
  * and preview the results.
  */
 
-import generateHeightmap from '../steps/01_generateHeightmap.js';
+import generateHeightmap from '../steps/01_generateHeightmap-browser.js';
+import { hexToPixelFlatOffset, getFlatHexPoints, getGridBoundsFlat } from '../utils/hexToPixel.js';
 import maskCoastline from '../steps/02_maskCoastline.js';
 import simulateRivers from '../steps/03_simulateRivers.js';
 import placeBiomes from '../steps/04_placeBiomes.js';
@@ -191,7 +192,7 @@ class MapGeneratorStepper {
       };
 
       // Run the step with appropriate parameters
-      const result = await this.executeStep(this.currentStep);
+      await this.executeStep(this.currentStep);
       
       // Restore console.log
       console.log = originalLog;
@@ -333,38 +334,23 @@ class MapGeneratorStepper {
     const hexGrid = this.mapData.hexGrid;
     const heightMap = this.mapData.heightmap;
     
-    // Find grid bounds
-    let minQ = Infinity, maxQ = -Infinity;
-    let minR = Infinity, maxR = -Infinity;
+    // Find grid bounds using offset coordinates
+    let minCol = Infinity, maxCol = -Infinity;
+    let minRow = Infinity, maxRow = -Infinity;
     
     hexGrid.forEach(hex => {
-      minQ = Math.min(minQ, hex.q);
-      maxQ = Math.max(maxQ, hex.q);
-      minR = Math.min(minR, hex.r);
-      maxR = Math.max(maxR, hex.r);
+      minCol = Math.min(minCol, hex.col);
+      maxCol = Math.max(maxCol, hex.col);
+      minRow = Math.min(minRow, hex.row);
+      maxRow = Math.max(maxRow, hex.row);
     });
     
     const hexSize = 15; // Size for visualization
+    const gridWidth = maxCol - minCol + 1;
+    const gridHeight = maxRow - minRow + 1;
     
-    // Use the same hexToPixel function as the heightmap generation (flat-topped)
-    function hexToPixel(hex, size) {
-      const x = (3/2) * size * hex.q;
-      const y = (Math.sqrt(3) * size) * (hex.r + hex.q / 2);
-      return { x, y };
-    }
-    
-    // Calculate bounds in pixel space
-    let minX = Infinity, maxX = -Infinity;
-    let minY = Infinity, maxY = -Infinity;
-    
-    hexGrid.forEach(hex => {
-      const pixel = hexToPixel(hex, hexSize);
-      minX = Math.min(minX, pixel.x);
-      maxX = Math.max(maxX, pixel.x);
-      minY = Math.min(minY, pixel.y);
-      maxY = Math.max(maxY, pixel.y);
-    });
-    
+    // Calculate bounds in pixel space using offset coordinates
+    const { minX, maxX, minY, maxY } = getGridBoundsFlat(gridWidth, gridHeight, hexSize);
     const width = maxX - minX + hexSize * 2;
     const height = maxY - minY + hexSize * 2;
     
@@ -374,19 +360,19 @@ class MapGeneratorStepper {
         <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
     `;
     
-    // Create a map for quick elevation lookup
+    // Create a map for quick elevation lookup using offset coordinates
     const elevationMap = new Map();
     hexGrid.forEach((hex, index) => {
-      elevationMap.set(`${hex.q},${hex.r}`, heightMap[index]);
+      elevationMap.set(`${hex.col},${hex.row}`, heightMap[index]);
     });
     
-    // Render each hex using the exact same coordinate system
+    // Render each hex using offset coordinates
     hexGrid.forEach(hex => {
-      const elevation = elevationMap.get(`${hex.q},${hex.r}`);
+      const elevation = elevationMap.get(`${hex.col},${hex.row}`);
       const color = this.getElevationColor(elevation);
       
-      // Use the exact same hexToPixel function as the heightmap generation
-      const pixel = hexToPixel(hex, hexSize);
+      // Use offset coordinates for pixel conversion
+      const pixel = hexToPixelFlatOffset({ col: hex.col, row: hex.row }, hexSize);
       const x = pixel.x - minX + hexSize;
       const y = pixel.y - minY + hexSize;
       
@@ -406,7 +392,7 @@ class MapGeneratorStepper {
           fill="${color}" 
           stroke="#333" 
           stroke-width="1"
-          title="Hex (${hex.q},${hex.r}) - Elevation: ${elevation.toFixed(3)}"
+          title="Hex (${hex.col},${hex.row}) - Elevation: ${elevation.toFixed(3)}"
         />
       `;
     });

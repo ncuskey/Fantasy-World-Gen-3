@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Flat-topped Hex Grid</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-area { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+    </style>
+</head>
+<body>
+    <h1>Test Flat-topped Hex Grid</h1>
+    
+    <div class="test-area">
+        <h3>Import Test</h3>
+        <div id="import-result">Testing imports...</div>
+    </div>
+    
+    <div class="test-area">
+        <h3>Heightmap Generation Test</h3>
+        <div id="heightmap-result">Testing heightmap generation...</div>
+    </div>
+    
+    <div class="test-area">
+        <h3>Hex Grid Visualization Test</h3>
+        <div id="visualization-result">Testing visualization...</div>
+    </div>
+
+    <script type="module">
+        async function testImports() {
+            try {
+                const result = document.getElementById('import-result');
+                result.innerHTML = '<span class="success">✓ Testing imports...</span>';
+                
+                // Test importing the heightmap function
+                const { generateHeightmap } = await import('./src/steps/01_generateHeightmap-browser.js');
+                result.innerHTML = '<span class="success">✓ Imports successful!</span>';
+                return generateHeightmap;
+            } catch (error) {
+                const result = document.getElementById('import-result');
+                result.innerHTML = `<span class="error">✗ Import failed: ${error.message}</span>`;
+                console.error('Import error:', error);
+                return null;
+            }
+        }
+
+        async function testHeightmap(generateHeightmap) {
+            try {
+                const result = document.getElementById('heightmap-result');
+                result.innerHTML = '<span class="success">✓ Testing heightmap generation...</span>';
+                
+                const heightmapResult = await generateHeightmap('test-seed', {
+                    gridWidth: 8,
+                    gridHeight: 8,
+                    octaves: 3,
+                    persistence: 0.5,
+                    lacunarity: 2.0,
+                    frequency: 1.0,
+                    amplitude: 1.0,
+                    gradientFalloff: 'circular',
+                    falloffCurve: 'linear',
+                    seaLevel: 0.3
+                });
+                
+                result.innerHTML = `<span class="success">✓ Heightmap generated successfully!</span><br>
+                    Hex grid: ${heightmapResult.hexGrid.length} cells<br>
+                    Height map: ${heightmapResult.heightMap.length} values<br>
+                    First few elevations: ${Array.from(heightmapResult.heightMap.slice(0, 5)).map(v => v.toFixed(3)).join(', ')}`;
+                
+                return heightmapResult;
+            } catch (error) {
+                const result = document.getElementById('heightmap-result');
+                result.innerHTML = `<span class="error">✗ Heightmap generation failed: ${error.message}</span>`;
+                console.error('Heightmap error:', error);
+                return null;
+            }
+        }
+
+        function testVisualization(heightmapResult) {
+            try {
+                const result = document.getElementById('visualization-result');
+                result.innerHTML = '<span class="success">✓ Testing visualization...</span>';
+                
+                const hexGrid = heightmapResult.hexGrid;
+                const heightMap = heightmapResult.heightMap;
+                const hexSize = 20;
+                
+                // Flat-topped hexToPixel function
+                function hexToPixel(hex, size) {
+                    const x = (3/2) * size * hex.q;
+                    const y = (Math.sqrt(3) * size) * (hex.r + hex.q / 2);
+                    return { x, y };
+                }
+                
+                // Calculate bounds
+                let minX = Infinity, maxX = -Infinity;
+                let minY = Infinity, maxY = -Infinity;
+                
+                hexGrid.forEach(hex => {
+                    const pixel = hexToPixel(hex, hexSize);
+                    minX = Math.min(minX, pixel.x);
+                    maxX = Math.max(maxX, pixel.x);
+                    minY = Math.min(minY, pixel.y);
+                    maxY = Math.max(maxY, pixel.y);
+                });
+                
+                const width = maxX - minX + hexSize * 2;
+                const height = maxY - minY + hexSize * 2;
+                
+                let svg = `<svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">`;
+                
+                // Create elevation map
+                const elevationMap = new Map();
+                hexGrid.forEach((hex, index) => {
+                    elevationMap.set(`${hex.q},${hex.r}`, heightMap[index]);
+                });
+                
+                // Render hexagons
+                hexGrid.forEach(hex => {
+                    const elevation = elevationMap.get(`${hex.q},${hex.r}`);
+                    const color = elevation < 0.3 ? 'blue' : elevation < 0.6 ? 'green' : 'white';
+                    
+                    const pixel = hexToPixel(hex, hexSize);
+                    const x = pixel.x - minX + hexSize;
+                    const y = pixel.y - minY + hexSize;
+                    
+                    // Flat-topped hexagon
+                    const points = [];
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 180) * (60 * i);
+                        const px = x + hexSize * Math.cos(angle);
+                        const py = y + hexSize * Math.sin(angle);
+                        points.push(`${px},${py}`);
+                    }
+                    
+                    svg += `<polygon points="${points.join(' ')}" fill="${color}" stroke="#333" stroke-width="1"/>`;
+                });
+                
+                svg += '</svg>';
+                
+                result.innerHTML = `<span class="success">✓ Visualization successful!</span><br>${svg}`;
+                
+            } catch (error) {
+                const result = document.getElementById('visualization-result');
+                result.innerHTML = `<span class="error">✗ Visualization failed: ${error.message}</span>`;
+                console.error('Visualization error:', error);
+            }
+        }
+
+        // Run tests
+        async function runTests() {
+            console.log('Starting tests...');
+            
+            const generateHeightmap = await testImports();
+            if (!generateHeightmap) return;
+            
+            const heightmapResult = await testHeightmap(generateHeightmap);
+            if (!heightmapResult) return;
+            
+            testVisualization(heightmapResult);
+        }
+
+        // Start tests when page loads
+        document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html> 

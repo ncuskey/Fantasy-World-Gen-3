@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Rectangular Hex Grid</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-area { margin: 20px 0; padding: 20px; border: 1px solid #ccc; }
+        .error { color: red; }
+        .success { color: green; }
+        .grid-info { background: #f0f0f0; padding: 10px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>Test Rectangular Hex Grid (Even-Q Offset)</h1>
+    
+    <div class="test-area">
+        <h3>Grid Generation Test</h3>
+        <div id="grid-result">Testing grid generation...</div>
+    </div>
+    
+    <div class="test-area">
+        <h3>Heightmap Generation Test</h3>
+        <div id="heightmap-result">Testing heightmap generation...</div>
+    </div>
+    
+    <div class="test-area">
+        <h3>Rectangular Layout Visualization</h3>
+        <div id="visualization-result">Testing visualization...</div>
+    </div>
+
+    <script type="module">
+        async function testGridGeneration() {
+            try {
+                const result = document.getElementById('grid-result');
+                result.innerHTML = '<span class="success">✓ Testing grid generation...</span>';
+                
+                // Test importing the grid generator
+                const { createHexGrid } = await import('./src/grid/hexGrid.js');
+                
+                // Create a small test grid
+                const testGrid = createHexGrid(8, 6);
+                
+                result.innerHTML = `
+                    <span class="success">✓ Grid generation successful!</span>
+                    <div class="grid-info">
+                        <strong>Grid Info:</strong><br>
+                        Total cells: ${testGrid.length}<br>
+                        Expected: 8 × 6 = 48 cells<br>
+                        First cell: col=${testGrid[0].col}, row=${testGrid[0].row}, q=${testGrid[0].q}, r=${testGrid[0].r}<br>
+                        Last cell: col=${testGrid[testGrid.length-1].col}, row=${testGrid[testGrid.length-1].row}, q=${testGrid[testGrid.length-1].q}, r=${testGrid[testGrid.length-1].r}
+                    </div>
+                `;
+                
+                return testGrid;
+            } catch (error) {
+                const result = document.getElementById('grid-result');
+                result.innerHTML = `<span class="error">✗ Grid generation failed: ${error.message}</span>`;
+                console.error('Grid error:', error);
+                return null;
+            }
+        }
+
+        async function testHeightmap(testGrid) {
+            try {
+                const result = document.getElementById('heightmap-result');
+                result.innerHTML = '<span class="success">✓ Testing heightmap generation...</span>';
+                
+                // Test importing the heightmap function
+                const { generateHeightmap } = await import('./src/steps/01_generateHeightmap-browser.js');
+                
+                const heightmapResult = await generateHeightmap('test-seed', {
+                    gridWidth: 8,
+                    gridHeight: 6,
+                    octaves: 3,
+                    persistence: 0.5,
+                    lacunarity: 2.0,
+                    frequency: 1.0,
+                    amplitude: 1.0,
+                    gradientFalloff: 'circular',
+                    falloffCurve: 'linear',
+                    seaLevel: 0.3
+                });
+                
+                result.innerHTML = `
+                    <span class="success">✓ Heightmap generated successfully!</span><br>
+                    Hex grid: ${heightmapResult.hexGrid.length} cells<br>
+                    Height map: ${heightmapResult.heightMap.length} values<br>
+                    First few elevations: ${Array.from(heightmapResult.heightMap.slice(0, 5)).map(v => v.toFixed(3)).join(', ')}<br>
+                    Grid structure: col=${heightmapResult.hexGrid[0].col}, row=${heightmapResult.hexGrid[0].row}, q=${heightmapResult.hexGrid[0].q}, r=${heightmapResult.hexGrid[0].r}
+                `;
+                
+                return heightmapResult;
+            } catch (error) {
+                const result = document.getElementById('heightmap-result');
+                result.innerHTML = `<span class="error">✗ Heightmap generation failed: ${error.message}</span>`;
+                console.error('Heightmap error:', error);
+                return null;
+            }
+        }
+
+        async function testVisualization(heightmapResult) {
+            try {
+                const result = document.getElementById('visualization-result');
+                result.innerHTML = '<span class="success">✓ Testing rectangular visualization...</span>';
+                
+                const hexGrid = heightmapResult.hexGrid;
+                const heightMap = heightmapResult.heightMap;
+                const hexSize = 20;
+                
+                // Import pixel conversion utilities
+                const { hexToPixelFlatOffset, getGridBoundsFlat } = await import('./src/utils/hexToPixel.js');
+                
+                // Calculate grid dimensions
+                let minCol = Infinity, maxCol = -Infinity;
+                let minRow = Infinity, maxRow = -Infinity;
+                
+                hexGrid.forEach(hex => {
+                    minCol = Math.min(minCol, hex.col);
+                    maxCol = Math.max(maxCol, hex.col);
+                    minRow = Math.min(minRow, hex.row);
+                    maxRow = Math.max(maxRow, hex.row);
+                });
+                
+                const gridWidth = maxCol - minCol + 1;
+                const gridHeight = maxRow - minRow + 1;
+                
+                // Calculate bounds using the new function
+                const { minX, maxX, minY, maxY } = getGridBoundsFlat(gridWidth, gridHeight, hexSize);
+                const width = maxX - minX + hexSize * 2;
+                const height = maxY - minY + hexSize * 2;
+                
+                let svg = `
+                    <div style="margin-top: 20px;">
+                        <h4>Rectangular Hex Grid Visualization (${hexGrid.length} cells)</h4>
+                        <p><strong>Grid Dimensions:</strong> ${gridWidth} × ${gridHeight} = ${gridWidth * gridHeight} cells</p>
+                        <p><strong>Bounds:</strong> minX=${minX.toFixed(1)}, maxX=${maxX.toFixed(1)}, minY=${minY.toFixed(1)}, maxY=${maxY.toFixed(1)}</p>
+                        <svg width="${width}" height="${height}" style="border: 2px solid #333; background: #f0f0f0;">
+                `;
+                
+                // Create elevation map
+                const elevationMap = new Map();
+                hexGrid.forEach((hex, index) => {
+                    elevationMap.set(`${hex.col},${hex.row}`, heightMap[index]);
+                });
+                
+                // Render hexagons using offset coordinates
+                hexGrid.forEach(hex => {
+                    const elevation = elevationMap.get(`${hex.col},${hex.row}`);
+                    const color = elevation < 0.3 ? 'blue' : elevation < 0.6 ? 'green' : 'white';
+                    
+                    // Use offset coordinates for pixel conversion
+                    const pixel = hexToPixelFlatOffset({ col: hex.col, row: hex.row }, hexSize);
+                    const x = pixel.x - minX + hexSize;
+                    const y = pixel.y - minY + hexSize;
+                    
+                    // Create flat-topped hexagon
+                    const points = [];
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 180) * (60 * i);
+                        const px = x + hexSize * Math.cos(angle);
+                        const py = y + hexSize * Math.sin(angle);
+                        points.push(`${px},${py}`);
+                    }
+                    
+                    svg += `
+                        <polygon 
+                            points="${points.join(' ')}" 
+                            fill="${color}" 
+                            stroke="#333" 
+                            stroke-width="1"
+                            title="Hex (${hex.col},${hex.row}) - Elevation: ${elevation.toFixed(3)}"
+                        />
+                    `;
+                });
+                
+                svg += '</svg></div>';
+                
+                result.innerHTML = `<span class="success">✓ Rectangular visualization successful!</span><br>${svg}`;
+                
+            } catch (error) {
+                const result = document.getElementById('visualization-result');
+                result.innerHTML = `<span class="error">✗ Visualization failed: ${error.message}</span>`;
+                console.error('Visualization error:', error);
+            }
+        }
+
+        // Run tests
+        async function runTests() {
+            console.log('Starting rectangular grid tests...');
+            
+            const testGrid = await testGridGeneration();
+            if (!testGrid) return;
+            
+            const heightmapResult = await testHeightmap(testGrid);
+            if (!heightmapResult) return;
+            
+            testVisualization(heightmapResult);
+        }
+
+        // Start tests when page loads
+        document.addEventListener('DOMContentLoaded', runTests);
+    </script>
+</body>
+</html> 
