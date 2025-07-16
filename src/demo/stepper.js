@@ -7,7 +7,7 @@
 
 import generateHeightmap from '../steps/01_generateHeightmap-browser.js';
 import { hexToPixelFlatOffset, getFlatHexPoints, getGridBoundsFlat } from '../utils/hexToPixel.js';
-import maskCoastline from '../steps/02_maskCoastline.js';
+import { maskCoastline } from '../steps/02_maskCoastline-browser.js';
 import simulateRivers from '../steps/03_simulateRivers.js';
 import placeBiomes from '../steps/04_placeBiomes.js';
 import placeSettlements from '../steps/05_placeSettlements.js';
@@ -231,9 +231,16 @@ class MapGeneratorStepper {
         break;
         
       case 1: // Mask Coastline
-        const coastlineResult = maskCoastline(this.mapData.heightmap);
-        this.mapData.heightmap = coastlineResult.heightmap;
-        this.mapData.coastlineMask = coastlineResult.coastlineMask;
+        const coastlineResult = maskCoastline({
+          hexGrid: this.mapData.hexGrid,
+          heightMap: this.mapData.heightmap
+        }, {
+          seaLevel: 0.5,
+          smoothingIterations: 2,
+          simplifyTolerance: 0.1
+        });
+        this.mapData.landMask = coastlineResult.landMask;
+        this.mapData.coastlinePath = coastlineResult.coastlinePath;
         break;
         
       case 2: // Simulate Rivers
@@ -327,6 +334,16 @@ class MapGeneratorStepper {
       preview += this.renderHexGrid();
     }
     
+    // Add coastline visualization if we have coastline data
+    if (this.mapData.coastlinePath) {
+      preview += this.renderCoastline();
+    }
+    
+    // Add land mask debug visualization if we have land mask data
+    if (this.mapData.landMask) {
+      preview += this.renderLandMaskDebug();
+    }
+    
     previewArea.innerHTML = preview;
   }
 
@@ -416,6 +433,120 @@ class MapGeneratorStepper {
       const intensity = Math.floor(100 + ((elevation - 0.6) / 0.4) * 155);
       return `rgb(${intensity}, ${intensity}, ${intensity})`;
     }
+  }
+
+  renderCoastline() {
+    if (!this.mapData.coastlinePath) return '';
+    
+    // Use the same bounds as the hex grid for consistency
+    const hexGrid = this.mapData.hexGrid;
+    let minCol = Infinity, maxCol = -Infinity;
+    let minRow = Infinity, maxRow = -Infinity;
+    
+    hexGrid.forEach(hex => {
+      minCol = Math.min(minCol, hex.col);
+      maxCol = Math.max(maxCol, hex.col);
+      minRow = Math.min(minRow, hex.row);
+      maxRow = Math.max(maxRow, hex.row);
+    });
+    
+    const hexSize = 15;
+    const gridWidth = maxCol - minCol + 1;
+    const gridHeight = maxRow - minRow + 1;
+    
+    const { minX, maxX, minY, maxY } = getGridBoundsFlat(gridWidth, gridHeight, hexSize);
+    const width = maxX - minX + hexSize * 2;
+    const height = maxY - minY + hexSize * 2;
+    
+    // Scale the coastline path to match the hex grid visualization
+    const scale = hexSize * 2; // Scale factor to match hex size
+    
+    return `
+      <div style="margin-top: 20px;">
+        <h4>Coastline Visualization</h4>
+        <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
+          <path 
+            d="${this.mapData.coastlinePath}" 
+            stroke="#000" 
+            stroke-width="2" 
+            fill="none"
+            transform="scale(${scale}) translate(${hexSize/scale}, ${hexSize/scale})"
+          />
+        </svg>
+        <p><strong>Land Mask:</strong> ${this.mapData.landMask ? `${this.mapData.landMask.filter(x => x === 1).length} land cells, ${this.mapData.landMask.filter(x => x === 0).length} sea cells` : 'Not available'}</p>
+      </div>
+    `;
+  }
+
+  renderLandMaskDebug() {
+    if (!this.mapData.landMask || !this.mapData.hexGrid || !this.mapData.heightmap) return '';
+    
+    const hexGrid = this.mapData.hexGrid;
+    const heightMap = this.mapData.heightmap;
+    const landMask = this.mapData.landMask;
+    const seaLevel = 0.5; // Should match the sea level used in coastline generation
+    
+    // Find grid bounds
+    let minCol = Infinity, maxCol = -Infinity;
+    let minRow = Infinity, maxRow = -Infinity;
+    
+    hexGrid.forEach(hex => {
+      minCol = Math.min(minCol, hex.col);
+      maxCol = Math.max(maxCol, hex.col);
+      minRow = Math.min(minRow, hex.row);
+      maxRow = Math.max(maxRow, hex.row);
+    });
+    
+    const hexSize = 15;
+    const gridWidth = maxCol - minCol + 1;
+    const gridHeight = maxRow - minRow + 1;
+    
+    const { minX, maxX, minY, maxY } = getGridBoundsFlat(gridWidth, gridHeight, hexSize);
+    const width = maxX - minX + hexSize * 2;
+    const height = maxY - minY + hexSize * 2;
+    
+    let svg = `
+      <div style="margin-top: 20px;">
+        <h4>Land Mask Debug (Black=Land, White=Sea)</h4>
+        <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
+    `;
+    
+    // Render each hex as black (land) or white (sea)
+    hexGrid.forEach((hex, index) => {
+      const isLand = heightMap[index] >= seaLevel;
+      const color = isLand ? "#000" : "#fff";
+      
+      // Use offset coordinates for pixel conversion
+      const pixel = hexToPixelFlatOffset({ col: hex.col, row: hex.row }, hexSize);
+      const x = pixel.x - minX + hexSize;
+      const y = pixel.y - minY + hexSize;
+      
+      // Create hexagon path for flat-topped orientation
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (Math.PI / 180) * (60 * i);
+        const px = x + hexSize * Math.cos(angle);
+        const py = y + hexSize * Math.sin(angle);
+        points.push(`${px},${py}`);
+      }
+      
+      svg += `
+        <polygon 
+          points="${points.join(' ')}" 
+          fill="${color}" 
+          stroke="#333" 
+          stroke-width="1"
+          title="Hex (${hex.col},${hex.row}) - Elevation: ${heightMap[index].toFixed(3)} - Land: ${isLand}"
+        />
+      `;
+    });
+    
+    svg += '</svg>';
+    svg += `<p><strong>Land Mask Verification:</strong> ${landMask.filter(x => x === 1).length} land cells, ${landMask.filter(x => x === 0).length} sea cells</p>`;
+    svg += `<p><strong>Sea Level:</strong> ${seaLevel}</p>`;
+    svg += '</div>';
+    
+    return svg;
   }
 
   log(message) {

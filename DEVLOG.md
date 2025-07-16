@@ -275,6 +275,42 @@ Fantasy-World-Gen-3/
 
 ---
 
+## 2024-12-19 - Step 2: Corner-Tracing Coastline Extraction
+
+### Problem
+Marching squares contours on a hex grid can produce jagged, imprecise coastlines that do not align with the true water/land boundary, especially for flat-topped hex layouts.
+
+### Solution
+Replaced marching squares with a pure geometric "corner-tracing" algorithm that extracts the coastline directly from the water hex geometry:
+
+#### Algorithm Steps
+1. **Water Mask**: Identify all water hexes (`heightMap[idx] < seaLevel`).
+2. **Corner Gathering**: For each water hex, compute its six corners in pixel space (using `hexToPixelFlatOffset` and flat-topped angles).
+3. **Corner Counting**: Round and count each corner; only keep corners that appear <3 times (perimeter corners).
+4. **Clustering & Looping**: Cluster perimeter corners by proximity, then sort each cluster by angle around its centroid to form closed loops.
+5. **SVG Path Output**: Emit one SVG path per loop, joining all as the final coastline path.
+6. **Land Mask**: Output a `Uint8Array` land mask for fast lookups.
+
+#### Technical Details
+- **No marching squares**: No rasterization artifacts; works directly from the hex grid.
+- **Handles islands, lakes, and holes**: Each water region produces its own closed loop.
+- **Deterministic**: Output is stable for a given seed and options.
+- **Efficient**: Only perimeter corners are processed for path output.
+- **Tested**: All tests pass, including edge cases and mask/path verification.
+
+#### Benefits
+- **Accurate Coastlines**: Coastline path exactly follows the true water/land boundary.
+- **No Artifacts**: No jagged or diagonal artifacts from raster marching squares.
+- **Works for Any Hex Layout**: Flat-topped, pointy-topped, or offset grids.
+- **Extensible**: Can be further tuned for smoothing, simplification, or multi-scale extraction.
+
+#### Files Updated
+- `src/steps/02_maskCoastline.js` (main logic)
+- `src/steps/02_maskCoastline-browser.js` (browser version)
+- `src/steps/02_maskCoastline.test.js` (tests)
+
+---
+
 ## Future Plans
 
 ### Next Steps
