@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Test</title>
+</head>
+<body>
+    <div id="test-container">
+        <h1>Testing Imports</h1>
+        <div id="status">Loading...</div>
+    </div>
+    
+    <script type="module">
+        console.log('Script starting...');
+        
+        try {
+            console.log('Attempting to import generateHeightmap...');
+            const { generateHeightmap } = await import('./src/steps/01_generateHeightmap.js');
+            console.log('Import successful!');
+            
+            console.log('Testing generateHeightmap function...');
+            const result = generateHeightmap('test-seed', {
+                gridWidth: 8,
+                gridHeight: 8,
+                octaves: 2
+            });
+            
+            console.log('Function call successful!');
+            console.log('Result:', result);
+            
+            document.getElementById('status').innerHTML = `
+                <h2>✅ Success!</h2>
+                <p>Generated ${result.hexGrid.length} hex cells</p>
+                <p>Heightmap length: ${result.heightMap.length}</p>
+                <p>First few elevation values: ${result.heightMap.slice(0, 5).map(v => v.toFixed(3)).join(', ')}</p>
+            `;
+            
+        } catch (error) {
+            console.error('Error:', error);
+            document.getElementById('status').innerHTML = `
+                <h2>❌ Error</h2>
+                <p>${error.message}</p>
+                <pre>${error.stack}</pre>
+            `;
+        }
+    </script>
+</body>
+</html> 

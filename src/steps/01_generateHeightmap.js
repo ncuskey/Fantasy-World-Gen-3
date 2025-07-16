@@ -5,22 +5,9 @@
  * realistic terrain elevation data on a hex grid.
  */
 
-// Conditional imports: use local modules for Node.js, CDN for browser
-let createNoise2D, seedrandom;
-
-if (typeof window === 'undefined') {
-  // Node.js environment - use local modules
-  const simplexNoise = await import('simplex-noise');
-  const seedrandomModule = await import('seedrandom');
-  createNoise2D = simplexNoise.createNoise2D;
-  seedrandom = seedrandomModule.default;
-} else {
-  // Browser environment - use CDN imports
-  const simplexNoise = await import('https://cdn.skypack.dev/simplex-noise');
-  const seedrandomModule = await import('https://cdn.skypack.dev/seedrandom');
-  createNoise2D = simplexNoise.createNoise2D;
-  seedrandom = seedrandomModule.default;
-}
+// Use CDN imports for browser compatibility
+import { createNoise2D } from 'https://cdn.skypack.dev/simplex-noise';
+import seedrandom from 'https://cdn.skypack.dev/seedrandom';
 
 /**
  * @typedef {{ q: number, r: number, s: number }} HexCell
@@ -41,6 +28,7 @@ if (typeof window === 'undefined') {
 /**
  * Create a hex grid with the specified dimensions.
  * Uses axial coordinate system (q, r, s) where q + r + s = 0.
+ * Generates a proper vertical hex grid.
  *
  * @param {number} gridWidth - Number of hex columns
  * @param {number} gridHeight - Number of hex rows
@@ -49,12 +37,9 @@ if (typeof window === 'undefined') {
 function createHexGrid(gridWidth, gridHeight) {
   const hexGrid = [];
   
+  // Generate a proper vertical hex grid
   for (let r = 0; r < gridHeight; r++) {
-    const rOffset = Math.floor(r / 2);
-    const qStart = -rOffset;
-    const qEnd = gridWidth - rOffset;
-    
-    for (let q = qStart; q < qEnd; q++) {
+    for (let q = 0; q < gridWidth; q++) {
       const s = -q - r;
       hexGrid.push({ q, r, s });
     }
@@ -84,9 +69,9 @@ function hexToPixel(hex, hexSize) {
  *
  * @param {string} seed - Deterministic seed string
  * @param {HeightmapOptions} options - Generation options
- * @returns {Promise<{ hexGrid: HexCell[], heightMap: Float32Array }>}
+ * @returns {{ hexGrid: HexCell[], heightMap: Float32Array }}
  */
-export async function generateHeightmap(seed, options) {
+export function generateHeightmap(seed, options) {
   const {
     gridWidth = 64,
     gridHeight = 64,

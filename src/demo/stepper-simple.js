@@ -1,18 +1,10 @@
 /**
- * Demo Stepper UI
+ * Simplified Demo Stepper UI
  * 
- * A simple interface to run each map generation step in sequence
- * and preview the results.
+ * A simple interface to test just the heightmap generation step.
  */
 
 import generateHeightmap from '../steps/01_generateHeightmap.js';
-import maskCoastline from '../steps/02_maskCoastline.js';
-import simulateRivers from '../steps/03_simulateRivers.js';
-import placeBiomes from '../steps/04_placeBiomes.js';
-import placeSettlements from '../steps/05_placeSettlements.js';
-import generateRoads from '../steps/06_generateRoads.js';
-import generateLabels from '../steps/07_generateLabels.js';
-import renderMap from '../steps/08_renderMap.js';
 
 class MapGeneratorStepper {
   constructor(containerId) {
@@ -20,14 +12,7 @@ class MapGeneratorStepper {
     this.currentStep = 0;
     this.mapData = {};
     this.steps = [
-      { name: 'Generate Heightmap', fn: generateHeightmap },
-      { name: 'Mask Coastline', fn: maskCoastline },
-      { name: 'Simulate Rivers', fn: simulateRivers },
-      { name: 'Place Biomes', fn: placeBiomes },
-      { name: 'Place Settlements', fn: placeSettlements },
-      { name: 'Generate Roads', fn: generateRoads },
-      { name: 'Generate Labels', fn: generateLabels },
-      { name: 'Render Map', fn: renderMap }
+      { name: 'Generate Heightmap', fn: generateHeightmap }
     ];
     
     this.init();
@@ -42,31 +27,22 @@ class MapGeneratorStepper {
   createUI() {
     this.container.innerHTML = `
       <div class="stepper-container">
-        <h1>Fantasy World Map Generator</h1>
+        <h1>Fantasy World Map Generator - Simple Test</h1>
         
         <div class="controls">
-          <button id="prevStep">Previous</button>
-          <button id="nextStep">Next</button>
-          <button id="runAll">Run All</button>
+          <button id="runStep">Run Heightmap Generation</button>
           <button id="reset">Reset</button>
         </div>
         
         <div class="step-info">
           <h2 id="stepTitle">Step 1: Generate Heightmap</h2>
-          <p id="stepDescription">Current step description</p>
+          <p id="stepDescription">Generate terrain elevation data using noise algorithms</p>
         </div>
         
         <div class="preview">
           <h3>Preview</h3>
           <div id="previewArea" class="preview-area">
-            <p>Run a step to see preview</p>
-          </div>
-        </div>
-        
-        <div class="options">
-          <h3>Options</h3>
-          <div id="optionsArea">
-            <p>Step-specific options will appear here</p>
+            <p>Click "Run Heightmap Generation" to see preview</p>
           </div>
         </div>
         
@@ -79,9 +55,6 @@ class MapGeneratorStepper {
 
     // Add some basic styling
     this.addStyles();
-    
-    // Add event listeners
-    this.addEventListeners();
   }
 
   addStyles() {
@@ -144,10 +117,6 @@ class MapGeneratorStepper {
         overflow-y: auto;
         border-radius: 5px;
       }
-      
-      .options {
-        margin: 20px 0;
-      }
     `;
     document.head.appendChild(style);
   }
@@ -155,26 +124,6 @@ class MapGeneratorStepper {
   updateStepDisplay() {
     const step = this.steps[this.currentStep];
     document.getElementById('stepTitle').textContent = `Step ${this.currentStep + 1}: ${step.name}`;
-    
-    // Update button states
-    document.getElementById('prevStep').disabled = this.currentStep === 0;
-    document.getElementById('nextStep').disabled = this.currentStep === this.steps.length - 1;
-  }
-
-  async nextStep() {
-    if (this.currentStep < this.steps.length - 1) {
-      await this.runCurrentStep();
-      this.currentStep++;
-      this.updateStepDisplay();
-    }
-  }
-
-  previousStep() {
-    if (this.currentStep > 0) {
-      this.currentStep--;
-      this.updateStepDisplay();
-      this.showPreview();
-    }
   }
 
   async runCurrentStep() {
@@ -190,8 +139,19 @@ class MapGeneratorStepper {
         originalLog.apply(console, args);
       };
 
-      // Run the step with appropriate parameters
-      const result = await this.executeStep(this.currentStep);
+      // Run the heightmap generation
+      const result = generateHeightmap('fantasy-world-seed', {
+        gridWidth: 32,
+        gridHeight: 32,
+        octaves: 6,
+        persistence: 0.5,
+        lacunarity: 2.0,
+        frequency: 1.0,
+        amplitude: 1.0,
+        gradientFalloff: 'circular',
+        falloffCurve: 'linear',
+        seaLevel: 0.3
+      });
       
       // Restore console.log
       console.log = originalLog;
@@ -199,95 +159,17 @@ class MapGeneratorStepper {
       // Display logs
       logs.forEach(log => this.log(log));
       
+      // Store results
+      this.mapData.hexGrid = result.hexGrid;
+      this.mapData.heightmap = result.heightMap;
+      
       this.log(`✓ ${step.name} completed successfully`);
       this.showPreview();
       
     } catch (error) {
       this.log(`✗ Error in ${step.name}: ${error.message}`);
+      console.error(error);
     }
-  }
-
-  async executeStep(stepIndex) {
-    const width = 256;
-    const height = 256;
-    
-    switch (stepIndex) {
-      case 0: // Generate Heightmap
-        const heightmapResult = generateHeightmap('fantasy-world-seed', {
-          gridWidth: 32,
-          gridHeight: 32,
-          octaves: 6,
-          persistence: 0.5,
-          lacunarity: 2.0,
-          frequency: 1.0,
-          amplitude: 1.0,
-          gradientFalloff: 'circular',
-          falloffCurve: 'linear',
-          seaLevel: 0.3
-        });
-        this.mapData.hexGrid = heightmapResult.hexGrid;
-        this.mapData.heightmap = heightmapResult.heightMap;
-        break;
-        
-      case 1: // Mask Coastline
-        const coastlineResult = maskCoastline(this.mapData.heightmap);
-        this.mapData.heightmap = coastlineResult.heightmap;
-        this.mapData.coastlineMask = coastlineResult.coastlineMask;
-        break;
-        
-      case 2: // Simulate Rivers
-        const riverResult = simulateRivers(this.mapData.heightmap);
-        this.mapData.riverMap = riverResult.riverMap;
-        this.mapData.rivers = riverResult.rivers;
-        break;
-        
-      case 3: // Place Biomes
-        const biomeResult = placeBiomes(this.mapData.heightmap, this.mapData.riverMap);
-        this.mapData.biomeMap = biomeResult.biomeMap;
-        this.mapData.biomes = biomeResult.biomes;
-        break;
-        
-      case 4: // Place Settlements
-        this.mapData.settlements = placeSettlements(
-          this.mapData.heightmap, 
-          this.mapData.biomeMap, 
-          this.mapData.riverMap
-        );
-        break;
-        
-      case 5: // Generate Roads
-        const roadResult = generateRoads(this.mapData.heightmap, this.mapData.settlements);
-        this.mapData.roadMap = roadResult.roadMap;
-        this.mapData.roads = roadResult.roads;
-        break;
-        
-      case 6: // Generate Labels
-        this.mapData.labels = generateLabels(
-          this.mapData.settlements, 
-          this.mapData.rivers, 
-          this.mapData.biomes
-        );
-        break;
-        
-      case 7: // Render Map
-        this.mapData.renderedMap = renderMap(this.mapData);
-        break;
-    }
-  }
-
-  async runAllSteps() {
-    this.log('Starting complete map generation...');
-    
-    for (let i = 0; i < this.steps.length; i++) {
-      this.currentStep = i;
-      this.updateStepDisplay();
-      await this.runCurrentStep();
-      
-      // Small delay between steps for visual feedback
-      await new Promise(resolve => setTimeout(resolve, 500));
-    }
-    
-    this.log('✓ Complete map generation finished!');
   }
 
   reset() {
@@ -302,7 +184,7 @@ class MapGeneratorStepper {
     const previewArea = document.getElementById('previewArea');
     
     if (Object.keys(this.mapData).length === 0) {
-      previewArea.innerHTML = '<p>No data generated yet. Run a step to see preview.</p>';
+      previewArea.innerHTML = '<p>No data generated yet. Run heightmap generation to see preview.</p>';
       return;
     }
 
@@ -443,17 +325,9 @@ class MapGeneratorStepper {
   }
 
   addEventListeners() {
-    document.getElementById('prevStep').addEventListener('click', () => this.previousStep());
-    document.getElementById('nextStep').addEventListener('click', () => this.nextStep());
-    document.getElementById('runAll').addEventListener('click', () => this.runAllSteps());
+    document.getElementById('runStep').addEventListener('click', () => this.runCurrentStep());
     document.getElementById('reset').addEventListener('click', () => this.reset());
   }
 }
 
-// Export for use
-export default MapGeneratorStepper;
-
-// Auto-initialize if running in browser
-if (typeof window !== 'undefined') {
-  window.MapGeneratorStepper = MapGeneratorStepper;
-} 
+export default MapGeneratorStepper; 

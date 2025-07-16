@@ -237,6 +237,115 @@ renderHexGrid() {
 
 ---
 
+## 2025-01-XX - Hex Grid Coordinate System Fixes
+
+### Pointy-topped Orientation Implementation
+**Problem**: Hex grid visualization was not using the correct coordinate system
+**Solution**: Updated hexToPixel function to use proper pointy-topped orientation
+```javascript
+// Pointy-topped orientation:
+//   x = sqrt(3) * size * (q + r/2)
+//   y = 3/2 * size * r
+function hexToPixel({q, r}, size) {
+  const x = Math.sqrt(3) * size * (q + r / 2);
+  const y = (3/2) * size * r;
+  return { x, y };
+}
+```
+
+### Grid Generation Improvements
+**Problem**: Original createHexGrid used offset rows creating slanted patterns
+**Solution**: Simplified to generate proper vertical hex grid
+```javascript
+// Before: Used rOffset creating slanted rectangular grid
+// After:  Simple rectangular coordinates (0 to gridWidth, 0 to gridHeight)
+function createHexGrid(gridWidth, gridHeight) {
+  const hexGrid = [];
+  for (let r = 0; r < gridHeight; r++) {
+    for (let q = 0; q < gridWidth; q++) {
+      const s = -q - r;
+      hexGrid.push({ q, r, s });
+    }
+  }
+  return hexGrid;
+}
+```
+
+### Visualization Coordinate System Alignment
+**Problem**: Visualization used different coordinate system than heightmap generation
+**Solution**: Made visualization use exact same hexToPixel function
+```javascript
+// Use the same hexToPixel function as the heightmap generation
+function hexToPixel(hex, size) {
+  const x = Math.sqrt(3) * size * (hex.q + hex.r / 2);
+  const y = (3 / 2) * size * hex.r;
+  return { x, y };
+}
+
+// Calculate bounds in pixel space for proper SVG dimensions
+let minX = Infinity, maxX = -Infinity;
+let minY = Infinity, maxY = -Infinity;
+hexGrid.forEach(hex => {
+  const pixel = hexToPixel(hex, hexSize);
+  minX = Math.min(minX, pixel.x);
+  maxX = Math.max(maxX, pixel.x);
+  minY = Math.min(minY, pixel.y);
+  maxY = Math.max(maxY, pixel.y);
+});
+```
+
+### Demo File Structure
+**Created Multiple Demo Versions:**
+- `demo-fixed.html` - Main demo with proper event handlers
+- `demo-simple.html` - Simplified version for testing
+- `test-simple.html` - Basic import test page
+- `src/demo/stepper-simple.js` - Simplified stepper for debugging
+
+### Import System Evolution
+**Phase 1**: Conditional imports (Node.js vs Browser)
+```javascript
+if (typeof window === 'undefined') {
+  // Node.js environment - use local modules
+  const simplexNoise = await import('simplex-noise');
+  const seedrandomModule = await import('seedrandom');
+} else {
+  // Browser environment - use CDN imports
+  const simplexNoise = await import('https://cdn.skypack.dev/simplex-noise');
+  const seedrandomModule = await import('https://cdn.skypack.dev/seedrandom');
+}
+```
+
+**Phase 2**: Simplified CDN imports for browser compatibility
+```javascript
+// Use CDN imports for browser compatibility
+import { createNoise2D } from 'https://cdn.skypack.dev/simplex-noise';
+import seedrandom from 'https://cdn.skypack.dev/seedrandom';
+```
+
+**Result**: Browser demo works perfectly, Node.js tests require separate handling
+
+### Technical Achievements
+**✅ Hex Grid Visualization:**
+- Proper pointy-topped orientation
+- Correct coordinate system alignment
+- Color-coded elevation display
+- Interactive hover tooltips
+- Tight hex packing with no gaps
+
+**✅ Browser Compatibility:**
+- CDN imports working correctly
+- Event handlers properly implemented
+- Error handling and debugging
+- Real-time visualization updates
+
+**✅ Coordinate System Consistency:**
+- Same hexToPixel function for generation and visualization
+- Proper bounds calculation for SVG dimensions
+- Accurate terrain representation
+- Deterministic output maintained
+
+---
+
 ## Current Status
 
 ### Completed ✅
@@ -246,6 +355,8 @@ renderHexGrid() {
 - **Documentation** - Comprehensive README and technical docs
 - **Testing** - Vitest test suite with full coverage
 - **Browser Demo** - Fixed compatibility issues and added visualization
+- **Hex Grid System** - Proper coordinate system and visualization
+- **Pointy-topped Orientation** - Correct hex orientation and layout
 
 ### In Progress 🔄
 - **Steps 2-8** - Placeholder implementations ready for development
@@ -293,6 +404,12 @@ renderHexGrid() {
 - **Easy Setup**: No bundler configuration needed
 - **Production Ready**: Can switch to bundler later
 
+### Why Pointy-topped Orientation?
+- **Standard Convention**: Most hex grid implementations use pointy-topped
+- **Visual Clarity**: Easier to distinguish individual hexes
+- **Coordinate System**: Matches standard axial coordinate conventions
+- **Consistency**: Aligns with mathematical hex grid theory
+
 ---
 
 ## Performance Metrics
@@ -325,12 +442,15 @@ renderHexGrid() {
 4. **Interactive Demo**: Stepper UI accelerates development and testing
 5. **CDN Approach**: Quick development setup without build complexity
 6. **Event Listeners**: Proper DOM event handling vs global variables
+7. **Coordinate System Consistency**: Using same functions for generation and visualization
+8. **Incremental Testing**: Simple test pages help isolate issues quickly
 
 ### Areas for Improvement
 1. **Error Handling**: Need more robust error handling in production
 2. **Performance**: Could optimize for very large grids
 3. **Visualization**: Could add more interactive features
 4. **Testing**: Need comprehensive unit test suite for all steps
+5. **Import System**: Need better solution for Node.js vs Browser compatibility
 
 ### Best Practices Established
 1. **Documentation**: Comprehensive JSDoc for all functions
@@ -339,6 +459,8 @@ renderHexGrid() {
 4. **Performance**: Use appropriate data structures (Float32Array)
 5. **Browser Compatibility**: CDN imports for development, bundler for production
 6. **Event Handling**: Use proper event listeners instead of global variables
+7. **Coordinate Systems**: Keep generation and visualization coordinate systems identical
+8. **Incremental Development**: Test each component individually before integration
 
 ---
 
@@ -351,6 +473,8 @@ renderHexGrid() {
 4. **Custom Curves**: User-defined gradient falloff curves
 5. **Interactive Controls**: Real-time parameter adjustment
 6. **Export Features**: Save/load generated maps
+7. **Hex Grid Variants**: Support for flat-topped and other orientations
+8. **Advanced Visualization**: 3D rendering, zoom levels, pan controls
 
 ### Scalability Plans
 1. **LOD System**: Level-of-detail for different zoom levels
@@ -363,6 +487,7 @@ renderHexGrid() {
 2. **CDN Strategy**: Proper asset delivery for production
 3. **Error Boundaries**: Graceful error handling
 4. **Performance Monitoring**: Track generation times and memory usage
+5. **Coordinate System Documentation**: Clear documentation of hex grid conventions
 
 ---
 
