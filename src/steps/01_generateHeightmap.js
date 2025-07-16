@@ -5,8 +5,9 @@
  * realistic terrain elevation data on a hex grid.
  */
 
-import { createNoise2D } from 'simplex-noise';
-import seedrandom from 'seedrandom';
+// Use CDN versions for browser compatibility
+import { createNoise2D } from 'https://cdn.skypack.dev/simplex-noise';
+import seedrandom from 'https://cdn.skypack.dev/seedrandom';
 
 /**
  * @typedef {{ q: number, r: number, s: number }} HexCell

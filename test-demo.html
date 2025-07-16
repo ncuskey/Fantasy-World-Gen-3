@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Demo</title>
+</head>
+<body>
+    <h1>Testing Module Loading</h1>
+    <div id="test-container"></div>
+    
+    <script type="module">
+        console.log('Module script loaded');
+        
+        try {
+            import('./src/demo/stepper.js').then(module => {
+                console.log('Stepper module loaded successfully');
+                console.log('Available exports:', Object.keys(module));
+            }).catch(error => {
+                console.error('Failed to load stepper module:', error);
+            });
+        } catch (error) {
+            console.error('Error in module import:', error);
+        }
+    </script>
+</body>
+</html> 

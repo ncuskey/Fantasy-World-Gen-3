@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node -e \"console.log('Open demo.html in a web browser to run the demo')\"",
     "dev": "python3 -m http.server 8000",
-    "test": "echo \"No tests specified yet\" && exit 0"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "map",
@@ -21,9 +22,11 @@
   ],
   "author": "Fantasy World Generator Team",
   "license": "MIT",
-  "devDependencies": {},
+  "devDependencies": {
+    "vitest": "^0.34.6"
+  },
   "dependencies": {
     "simplex-noise": "^4.0.0",
     "seedrandom": "^3.0.5"
   }
-} 
+}

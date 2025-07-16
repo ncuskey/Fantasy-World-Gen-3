@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy World Map Generator - Demo (Fixed)</title>
+</head>
+<body>
+    <div id="stepper-container"></div>
+    
+    <script type="module">
+        import MapGeneratorStepper from './src/demo/stepper.js';
+        
+        // Initialize the stepper when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                const stepper = new MapGeneratorStepper('stepper-container');
+                console.log('Stepper initialized successfully');
+            } catch (error) {
+                console.error('Failed to initialize stepper:', error);
+                document.getElementById('stepper-container').innerHTML = `
+                    <div style="padding: 20px; color: red;">
+                        <h1>Error Loading Demo</h1>
+                        <p>Failed to initialize the map generator stepper.</p>
+                        <p>Error: ${error.message}</p>
+                        <p>Check the browser console for more details.</p>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html> 

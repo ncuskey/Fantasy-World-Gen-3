@@ -36,6 +36,7 @@ class MapGeneratorStepper {
   init() {
     this.createUI();
     this.updateStepDisplay();
+    this.addEventListeners();
   }
 
   createUI() {
@@ -44,10 +45,10 @@ class MapGeneratorStepper {
         <h1>Fantasy World Map Generator</h1>
         
         <div class="controls">
-          <button id="prevStep" onclick="stepper.previousStep()">Previous</button>
-          <button id="nextStep" onclick="stepper.nextStep()">Next</button>
-          <button id="runAll" onclick="stepper.runAllSteps()">Run All</button>
-          <button id="reset" onclick="stepper.reset()">Reset</button>
+          <button id="prevStep">Previous</button>
+          <button id="nextStep">Next</button>
+          <button id="runAll">Run All</button>
+          <button id="reset">Reset</button>
         </div>
         
         <div class="step-info">
@@ -78,6 +79,9 @@ class MapGeneratorStepper {
 
     // Add some basic styling
     this.addStyles();
+    
+    // Add event listeners
+    this.addEventListeners();
   }
 
   addStyles() {
@@ -316,7 +320,96 @@ class MapGeneratorStepper {
     });
     
     preview += '</ul>';
+
+    // Add hex grid visualization if we have heightmap data
+    if (this.mapData.hexGrid && this.mapData.heightmap) {
+      preview += this.renderHexGrid();
+    }
+    
     previewArea.innerHTML = preview;
+  }
+
+  renderHexGrid() {
+    const hexGrid = this.mapData.hexGrid;
+    const heightMap = this.mapData.heightmap;
+    
+    // Find grid bounds
+    let minQ = Infinity, maxQ = -Infinity;
+    let minR = Infinity, maxR = -Infinity;
+    
+    hexGrid.forEach(hex => {
+      minQ = Math.min(minQ, hex.q);
+      maxQ = Math.max(maxQ, hex.q);
+      minR = Math.min(minR, hex.r);
+      maxR = Math.max(maxR, hex.r);
+    });
+    
+    const gridWidth = maxQ - minQ + 1;
+    const gridHeight = maxR - minR + 1;
+    const hexSize = 20;
+    const width = gridWidth * hexSize * 1.5;
+    const height = gridHeight * hexSize * Math.sqrt(3);
+    
+    let svg = `
+      <div style="margin-top: 20px;">
+        <h4>Hex Grid Visualization (${hexGrid.length} cells)</h4>
+        <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
+    `;
+    
+    // Create a map for quick elevation lookup
+    const elevationMap = new Map();
+    hexGrid.forEach((hex, index) => {
+      elevationMap.set(`${hex.q},${hex.r}`, heightMap[index]);
+    });
+    
+    // Render each hex
+    hexGrid.forEach(hex => {
+      const elevation = elevationMap.get(`${hex.q},${hex.r}`);
+      const color = this.getElevationColor(elevation);
+      
+      // Convert hex coordinates to pixel coordinates
+      const x = (hex.q - minQ) * hexSize * 1.5 + hexSize;
+      const y = (hex.r - minR) * hexSize * Math.sqrt(3) + hexSize;
+      
+      // Create hexagon path
+      const points = [];
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI) / 3;
+        const px = x + hexSize * Math.cos(angle);
+        const py = y + hexSize * Math.sin(angle);
+        points.push(`${px},${py}`);
+      }
+      
+      svg += `
+        <polygon 
+          points="${points.join(' ')}" 
+          fill="${color}" 
+          stroke="#333" 
+          stroke-width="1"
+          title="Hex (${hex.q},${hex.r}) - Elevation: ${elevation.toFixed(3)}"
+        />
+      `;
+    });
+    
+    svg += '</svg></div>';
+    return svg;
+  }
+
+  getElevationColor(elevation) {
+    // Color gradient from deep blue (water) to green (land) to white (mountains)
+    if (elevation < 0.3) {
+      // Water - blue gradient
+      const intensity = Math.floor(100 + (elevation / 0.3) * 155);
+      return `rgb(0, 0, ${intensity})`;
+    } else if (elevation < 0.6) {
+      // Land - green gradient
+      const intensity = Math.floor(100 + ((elevation - 0.3) / 0.3) * 155);
+      return `rgb(0, ${intensity}, 0)`;
+    } else {
+      // Mountains - white/gray gradient
+      const intensity = Math.floor(100 + ((elevation - 0.6) / 0.4) * 155);
+      return `rgb(${intensity}, ${intensity}, ${intensity})`;
+    }
   }
 
   log(message) {
@@ -328,6 +421,13 @@ class MapGeneratorStepper {
 
   clearLog() {
     document.getElementById('logArea').innerHTML = '';
+  }
+
+  addEventListeners() {
+    document.getElementById('prevStep').addEventListener('click', () => this.previousStep());
+    document.getElementById('nextStep').addEventListener('click', () => this.nextStep());
+    document.getElementById('runAll').addEventListener('click', () => this.runAllSteps());
+    document.getElementById('reset').addEventListener('click', () => this.reset());
   }
 }
 
