@@ -1,0 +1,29 @@
+{
+  "name": "fantasy-world-map-generator",
+  "version": "1.0.0",
+  "description": "A procedural fantasy world map generator with step-by-step generation pipeline",
+  "main": "src/demo/stepper.js",
+  "type": "module",
+  "scripts": {
+    "start": "node -e \"console.log('Open demo.html in a web browser to run the demo')\"",
+    "dev": "python3 -m http.server 8000",
+    "test": "echo \"No tests specified yet\" && exit 0"
+  },
+  "keywords": [
+    "map",
+    "generator",
+    "fantasy",
+    "procedural",
+    "world",
+    "terrain",
+    "rivers",
+    "settlements"
+  ],
+  "author": "Fantasy World Generator Team",
+  "license": "MIT",
+  "devDependencies": {},
+  "dependencies": {
+    "simplex-noise": "^4.0.0",
+    "seedrandom": "^3.0.5"
+  }
+} 

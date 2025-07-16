@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy World Map Generator - Demo</title>
+</head>
+<body>
+    <div id="stepper-container"></div>
+    
+    <script type="module">
+        import MapGeneratorStepper from './src/demo/stepper.js';
+        
+        // Initialize the stepper when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            window.stepper = new MapGeneratorStepper('stepper-container');
+        });
+    </script>
+</body>
+</html> 
