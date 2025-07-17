@@ -6,6 +6,7 @@ import { hexToPixelFlatOffset } from '../utils/hexToPixel.js';
  * @typedef {{ hexGrid: HexCell[], heightMap: Float32Array }} HeightmapData
  * @typedef {{
  *   seaLevel: number,
+ *   hexSize: number,
  *   smoothingIterations: number,
  *   simplifyTolerance: number
  * }} CoastlineOptions
@@ -26,7 +27,7 @@ import { hexToPixelFlatOffset } from '../utils/hexToPixel.js';
  * }}
  */
 export function maskCoastline({ hexGrid, heightMap }, options) {
-  const { seaLevel = 0.5, smoothingIterations = 2, simplifyTolerance = 0.1 } = options;
+  const { seaLevel = 0.5, hexSize = 20, smoothingIterations = 2, simplifyTolerance = 0.1 } = options;
   
   // 1. Compute water mask
   const isWater = new Array(heightMap.length);
@@ -35,13 +36,19 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
   }
   
   // 2. Gather corner points from water hexes
-  const cornerList = gatherWaterHexCorners(hexGrid, isWater, 15); // hexSize = 15
+  const cornerList = gatherWaterHexCorners(hexGrid, isWater, hexSize);
   
   // 3. Filter out interior corners (shared by ≥3 water hexes)
   const perimeterCorners = filterInteriorCorners(cornerList);
   
+  // Debug logging
+  console.log("total water hexes:", isWater.filter(w => w).length);
+  console.log("total raw corners:", cornerList.length);
+  console.log("perimeter corners:", perimeterCorners.length);
+  console.log("hexSize used:", hexSize);
+  
   // 4. Cluster and sort into closed loops
-  const cornerLoops = clusterAndSortCorners(perimeterCorners, 15);
+  const cornerLoops = clusterAndSortCorners(perimeterCorners, hexSize);
   
   // 5. Build SVG path from corner loops
   const coastlinePath = cornerLoopsToSVGPath(cornerLoops);
@@ -54,7 +61,8 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
   
   return {
     landMask,
-    coastlinePath
+    coastlinePath,
+    debugPerimeterPoints: perimeterCorners // For debugging visualization
   };
 }
 
@@ -133,7 +141,7 @@ function clusterAndSortCorners(perimeterCorners, hexSize) {
   if (perimeterCorners.length === 0) return [];
   
   const sideLength = hexSize * Math.sqrt(3); // Distance between adjacent corners
-  const connectionThreshold = sideLength * 1.5; // Allow some tolerance
+  const connectionThreshold = sideLength * 1.15; // Tighter tolerance for better clustering
   
   const clusters = [];
   const used = new Set();

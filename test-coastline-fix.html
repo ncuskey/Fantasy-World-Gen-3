@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coastline Coordinate Fix Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .visualization {
+            margin: 20px 0;
+            border: 1px solid #ccc;
+            background: #f8f8f8;
+            padding: 10px;
+        }
+        .debug-info {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Coastline Coordinate Fix Test</h1>
+        <p>This test verifies that the coastline corner-tracer now uses the correct coordinate space.</p>
+        
+        <button onclick="runTest()">Run Coastline Test</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script type="module">
+        import generateHeightmap from './src/steps/01_generateHeightmap-browser.js';
+        import { maskCoastline } from './src/steps/02_maskCoastline-browser.js';
+        import { hexToPixelFlatOffset, getGridBoundsFlat } from './src/utils/hexToPixel.js';
+
+        window.runTest = async function() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h3>Running test...</h3>';
+            
+            try {
+                // Generate a small test heightmap
+                const heightmapResult = await generateHeightmap('test-seed', {
+                    gridWidth: 8,
+                    gridHeight: 8,
+                    octaves: 4,
+                    persistence: 0.5,
+                    lacunarity: 2.0,
+                    frequency: 1.0,
+                    amplitude: 1.0,
+                    gradientFalloff: 'circular',
+                    falloffCurve: 'linear',
+                    seaLevel: 0.3
+                });
+
+                // Generate coastline with hexSize = 15 (matching visualization)
+                const coastlineResult = maskCoastline({
+                    hexGrid: heightmapResult.hexGrid,
+                    heightMap: heightmapResult.heightMap
+                }, {
+                    seaLevel: 0.5,
+                    hexSize: 15, // This should now be used correctly
+                    smoothingIterations: 2,
+                    simplifyTolerance: 0.1
+                });
+
+                // Display results
+                displayResults(heightmapResult, coastlineResult);
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<h3>Error:</h3><pre>${error.message}</pre>`;
+                console.error('Test error:', error);
+            }
+        };
+
+        function displayResults(heightmapResult, coastlineResult) {
+            const resultsDiv = document.getElementById('results');
+            
+            // Calculate bounds for visualization
+            const hexGrid = heightmapResult.hexGrid;
+            let minCol = Infinity, maxCol = -Infinity;
+            let minRow = Infinity, maxRow = -Infinity;
+            
+            hexGrid.forEach(hex => {
+                minCol = Math.min(minCol, hex.col);
+                maxCol = Math.max(maxCol, hex.col);
+                minRow = Math.min(minRow, hex.row);
+                maxRow = Math.max(maxRow, hex.row);
+            });
+            
+            const hexSize = 15;
+            const gridWidth = maxCol - minCol + 1;
+            const gridHeight = maxRow - minRow + 1;
+            
+            const { minX, maxX, minY, maxY } = getGridBoundsFlat(gridWidth, gridHeight, hexSize);
+            const width = maxX - minX + hexSize * 2;
+            const height = maxY - minY + hexSize * 2;
+            
+            // Create hex grid visualization
+            let svg = `
+                <div class="visualization">
+                    <h4>Hex Grid with Coastline Overlay</h4>
+                    <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
+            `;
+            
+            // Render hexes
+            const elevationMap = new Map();
+            hexGrid.forEach((hex, index) => {
+                elevationMap.set(`${hex.col},${hex.row}`, heightmapResult.heightMap[index]);
+            });
+            
+            hexGrid.forEach(hex => {
+                const elevation = elevationMap.get(`${hex.col},${hex.row}`);
+                const isWater = elevation < 0.5;
+                const color = isWater ? "#0066cc" : "#00aa00";
+                
+                const pixel = hexToPixelFlatOffset({ col: hex.col, row: hex.row }, hexSize);
+                const x = pixel.x - minX + hexSize;
+                const y = pixel.y - minY + hexSize;
+                
+                const points = [];
+                for (let i = 0; i < 6; i++) {
+                    const angle = (Math.PI / 180) * (60 * i);
+                    const px = x + hexSize * Math.cos(angle);
+                    const py = y + hexSize * Math.sin(angle);
+                    points.push(`${px},${py}`);
+                }
+                
+                svg += `
+                    <polygon 
+                        points="${points.join(' ')}" 
+                        fill="${color}" 
+                        stroke="#333" 
+                        stroke-width="1"
+                        opacity="0.7"
+                    />
+                `;
+            });
+            
+            // Add coastline path
+            if (coastlineResult.coastlinePath) {
+                const scale = hexSize * 2;
+                svg += `
+                    <path 
+                        d="${coastlineResult.coastlinePath}" 
+                        stroke="#ff0000" 
+                        stroke-width="3" 
+                        fill="none"
+                        transform="scale(${scale}) translate(${hexSize/scale}, ${hexSize/scale})"
+                    />
+                `;
+            }
+            
+            // Add debug perimeter points
+            if (coastlineResult.debugPerimeterPoints) {
+                const scale = hexSize * 2;
+                coastlineResult.debugPerimeterPoints.forEach(point => {
+                    const scaledX = (point.x / scale) + hexSize;
+                    const scaledY = (point.y / scale) + hexSize;
+                    svg += `<circle cx="${scaledX}" cy="${scaledY}" r="2" fill="yellow" stroke="black" stroke-width="1" />`;
+                });
+            }
+            
+            svg += '</svg></div>';
+            
+            // Debug information
+            const debugInfo = `
+                <div class="debug-info">
+                    <h4>Debug Information:</h4>
+                    <p><strong>Total hexes:</strong> ${hexGrid.length}</p>
+                    <p><strong>Water hexes:</strong> ${heightmapResult.heightMap.filter(h => h < 0.5).length}</p>
+                    <p><strong>Land hexes:</strong> ${heightmapResult.heightMap.filter(h => h >= 0.5).length}</p>
+                    <p><strong>Raw corners:</strong> ${coastlineResult.debugPerimeterPoints ? coastlineResult.debugPerimeterPoints.length * 6 : 'N/A'}</p>
+                    <p><strong>Perimeter corners:</strong> ${coastlineResult.debugPerimeterPoints ? coastlineResult.debugPerimeterPoints.length : 'N/A'}</p>
+                    <p><strong>HexSize used:</strong> 15</p>
+                    <p><strong>Coastline path:</strong> ${coastlineResult.coastlinePath ? coastlineResult.coastlinePath.substring(0, 100) + '...' : 'None'}</p>
+                </div>
+            `;
+            
+            resultsDiv.innerHTML = svg + debugInfo;
+        }
+
+        window.clearResults = function() {
+            document.getElementById('results').innerHTML = '';
+        };
+    </script>
+</body>
+</html> 

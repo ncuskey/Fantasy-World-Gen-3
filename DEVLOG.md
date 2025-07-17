@@ -311,14 +311,48 @@ Replaced marching squares with a pure geometric "corner-tracing" algorithm that 
 
 ---
 
+## 2024-12-19 - Coastline Coordinate Space Fix
+
+### Critical Bug Fix
+- **Issue**: Corner-tracer was using mismatched coordinate space causing perimeter points to bunch together
+- **Root Cause**: Hardcoded `hexSize = 15` in coastline function vs. different sizes in visualization
+- **Impact**: Coastline paths were not following actual coast contours properly
+
+### Fixes Applied
+- **Parameter Propagation**: Added `hexSize` to `CoastlineOptions` typedef and function signature
+- **Consistent Sizing**: Updated stepper to pass `hexSize: 15` to match visualization
+- **Tighter Clustering**: Reduced connection threshold from 1.5× to 1.15× side length for better precision
+- **Debug Visualization**: Added perimeter point rendering for validation
+- **Browser Version**: Updated both Node.js and browser versions consistently
+
+### Technical Changes
+- **Function Signature**: `maskCoastline(data, { seaLevel, hexSize, smoothingIterations, simplifyTolerance })`
+- **Default Values**: `hexSize = 20` (Node.js), `hexSize = 15` (stepper visualization)
+- **Debug Output**: Returns `debugPerimeterPoints` for visualization validation
+- **Clustering Threshold**: `sideLength * 1.15` for more precise corner grouping
+
+### Files Modified
+- `src/steps/02_maskCoastline.js` - Added hexSize parameter and debug output
+- `src/steps/02_maskCoastline-browser.js` - Same changes for browser compatibility
+- `src/demo/stepper.js` - Updated to pass correct hexSize and display debug points
+- `test-coastline-fix.html` - New test page for coordinate validation
+
+### Validation
+- **Tests Passing**: All Vitest tests still pass with updated function signature
+- **Debug Visualization**: Perimeter points now properly outline coast contours
+- **Coordinate Alignment**: Corner calculations now match hex grid visualization exactly
+
+---
+
 ## Future Plans
 
 ### Next Steps
-1. **Step 2 - Climate Generation**: Add temperature and precipitation based on heightmap
-2. **Step 3 - Biome Assignment**: Assign biomes based on climate and elevation
-3. **Step 4 - River Generation**: Generate river systems using flow algorithms
-4. **Step 5 - Settlement Placement**: Place cities and towns based on resources
-5. **Step 6 - Political Boundaries**: Generate nations and territories
+1. **Step 3 - River Generation**: Generate river systems using flow algorithms
+2. **Step 4 - Biome Assignment**: Assign biomes based on climate and elevation
+3. **Step 5 - Settlement Placement**: Place cities and towns based on resources
+4. **Step 6 - Road Generation**: Connect settlements with road networks
+5. **Step 7 - Label Generation**: Add place names and features
+6. **Step 8 - Final Rendering**: Complete map visualization
 
 ### Technical Improvements
 - **Performance Optimization**: Web Workers for large grids

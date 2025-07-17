@@ -236,11 +236,13 @@ class MapGeneratorStepper {
           heightMap: this.mapData.heightmap
         }, {
           seaLevel: 0.5,
+          hexSize: 15, // Match the hexSize used in renderHexGrid
           smoothingIterations: 2,
           simplifyTolerance: 0.1
         });
         this.mapData.landMask = coastlineResult.landMask;
         this.mapData.coastlinePath = coastlineResult.coastlinePath;
+        this.mapData.debugPerimeterPoints = coastlineResult.debugPerimeterPoints;
         break;
         
       case 2: // Simulate Rivers
@@ -461,6 +463,16 @@ class MapGeneratorStepper {
     // Scale the coastline path to match the hex grid visualization
     const scale = hexSize * 2; // Scale factor to match hex size
     
+    // Debug: Add perimeter points visualization
+    let debugPoints = '';
+    if (this.mapData.debugPerimeterPoints) {
+      this.mapData.debugPerimeterPoints.forEach(point => {
+        const scaledX = (point.x / scale) + hexSize;
+        const scaledY = (point.y / scale) + hexSize;
+        debugPoints += `<circle cx="${scaledX}" cy="${scaledY}" r="2" fill="red" />`;
+      });
+    }
+    
     return `
       <div style="margin-top: 20px;">
         <h4>Coastline Visualization</h4>
@@ -472,8 +484,10 @@ class MapGeneratorStepper {
             fill="none"
             transform="scale(${scale}) translate(${hexSize/scale}, ${hexSize/scale})"
           />
+          ${debugPoints}
         </svg>
         <p><strong>Land Mask:</strong> ${this.mapData.landMask ? `${this.mapData.landMask.filter(x => x === 1).length} land cells, ${this.mapData.landMask.filter(x => x === 0).length} sea cells` : 'Not available'}</p>
+        ${this.mapData.debugPerimeterPoints ? `<p><strong>Debug:</strong> ${this.mapData.debugPerimeterPoints.length} perimeter points shown in red</p>` : ''}
       </div>
     `;
   }
