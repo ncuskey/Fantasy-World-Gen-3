@@ -39,6 +39,11 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
   const W = cols;
   const H = rows;
 
+  // Debug: log hexSize
+  if (typeof window !== 'undefined') {
+    console.log('[maskCoastline] hexSize:', hexSize);
+  }
+
   // 1️⃣ build boolean landMask array
   const landMask = hexGrid.map((cell, idx) =>
     heightMap[idx] >= seaLevel ? 1 : 0
@@ -93,6 +98,7 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
     { dq:  0, dr: -1, a1: 210, a2: 270 },  // SW edge
     { dq:  1, dr: -1, a1: 270, a2: 330 }   // SE edge
   ];
+  let missingNeighborCount = 0;
   for (let i = 0; i < hexGrid.length; i++) {
     const cell = hexGrid[i];
     const { x: cx, y: cy } = hexToPixelFlatOffset(cell, hexSize);
@@ -100,6 +106,10 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
       const { dq, dr, a1, a2 } = edges[e];
       const key = `${cell.q + dq},${cell.r + dr}`;
       const nIdx = coordToIndex.get(key);
+      if (typeof window !== 'undefined' && nIdx == null && missingNeighborCount < 20) {
+        console.log(`[maskCoastline] Missing neighbor at ${key} for cell ${cell.q},${cell.r}`);
+        missingNeighborCount++;
+      }
       const neighborIsLand = nIdx != null && landMask[nIdx] === 1;
       if (landMask[i] === 1 && !neighborIsLand) {
         // convert angles to radians only when needed
