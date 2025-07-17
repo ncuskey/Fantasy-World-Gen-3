@@ -84,27 +84,29 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
 
   // 2️⃣ scan neighbors to collect all boundary segments
   const segments = [];
-  const angles = [0, 60, 120, 180, 240, 300]; // flat-topped corner angles
-  // Flat-topped neighbor directions (even-q offset)
-  const dirs = [
-    [+1,  0], [0, +1], [-1, +1],
-    [-1,  0], [0, -1], [+1, -1]
+  // For flat‑topped hexes: each neighbor offset → its two corner angles (in degrees)
+  const edges = [
+    { dq:  1, dr:  0, a1: -30, a2:  30 },  // east edge
+    { dq:  0, dr:  1, a1:  30, a2:  90 },  // NE edge
+    { dq: -1, dr:  1, a1:  90, a2: 150 },  // NW edge
+    { dq: -1, dr:  0, a1: 150, a2: 210 },  // west edge
+    { dq:  0, dr: -1, a1: 210, a2: 270 },  // SW edge
+    { dq:  1, dr: -1, a1: 270, a2: 330 }   // SE edge
   ];
   for (let i = 0; i < hexGrid.length; i++) {
     const cell = hexGrid[i];
     const { x: cx, y: cy } = hexToPixelFlatOffset(cell, hexSize);
-    for (let edge = 0; edge < 6; edge++) {
-      const [dq, dr] = dirs[edge];
+    for (let e = 0; e < edges.length; e++) {
+      const { dq, dr, a1, a2 } = edges[e];
       const key = `${cell.q + dq},${cell.r + dr}`;
       const nIdx = coordToIndex.get(key);
-      // treat missing neighbor (map border) as water
       const neighborIsLand = nIdx != null && landMask[nIdx] === 1;
-      // ONLY emit when this hex is land AND neighbor is water
       if (landMask[i] === 1 && !neighborIsLand) {
-        const a1 = (Math.PI/180)*(angles[edge]);
-        const a2 = (Math.PI/180)*(angles[(edge + 1)%6]);
-        const p1 = { x: cx + hexSize * Math.cos(a1), y: cy + hexSize * Math.sin(a1) };
-        const p2 = { x: cx + hexSize * Math.cos(a2), y: cy + hexSize * Math.sin(a2) };
+        // convert angles to radians only when needed
+        const r1 = (Math.PI/180) * a1;
+        const r2 = (Math.PI/180) * a2;
+        const p1 = { x: cx + hexSize * Math.cos(r1), y: cy + hexSize * Math.sin(r1) };
+        const p2 = { x: cx + hexSize * Math.cos(r2), y: cy + hexSize * Math.sin(r2) };
         segments.push([p1, p2]);
       }
     }
