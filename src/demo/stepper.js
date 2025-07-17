@@ -460,16 +460,28 @@ class MapGeneratorStepper {
     const width = maxX - minX + hexSize * 2;
     const height = maxY - minY + hexSize * 2;
     
-    // Scale the coastline path to match the hex grid visualization
-    const scale = hexSize * 2; // Scale factor to match hex size
+    // Transform coastline path coordinates to match hex grid visualization
+    const transformPath = (pathString) => {
+      // Parse the path and transform each coordinate
+      return pathString.replace(/([ML])([-\d.]+)\s+([-\d.]+)/g, (match, command, x, y) => {
+        const pixelX = parseFloat(x);
+        const pixelY = parseFloat(y);
+        // Apply the same transformation as hex grid: subtract bounds and add margin
+        const transformedX = pixelX - minX + hexSize;
+        const transformedY = pixelY - minY + hexSize;
+        return `${command}${transformedX} ${transformedY}`;
+      });
+    };
     
-    // Debug: Add perimeter points visualization
+    const transformedPath = transformPath(this.mapData.coastlinePath);
+    
+    // Debug: Add perimeter points visualization with same transformation
     let debugPoints = '';
     if (this.mapData.debugPerimeterPoints) {
       this.mapData.debugPerimeterPoints.forEach(point => {
-        const scaledX = (point.x / scale) + hexSize;
-        const scaledY = (point.y / scale) + hexSize;
-        debugPoints += `<circle cx="${scaledX}" cy="${scaledY}" r="2" fill="red" />`;
+        const transformedX = point.x - minX + hexSize;
+        const transformedY = point.y - minY + hexSize;
+        debugPoints += `<circle cx="${transformedX}" cy="${transformedY}" r="2" fill="red" />`;
       });
     }
     
@@ -478,11 +490,10 @@ class MapGeneratorStepper {
         <h4>Coastline Visualization</h4>
         <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
           <path 
-            d="${this.mapData.coastlinePath}" 
+            d="${transformedPath}" 
             stroke="#000" 
             stroke-width="2" 
             fill="none"
-            transform="scale(${scale}) translate(${hexSize/scale}, ${hexSize/scale})"
           />
           ${debugPoints}
         </svg>

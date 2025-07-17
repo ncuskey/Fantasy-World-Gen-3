@@ -342,6 +342,11 @@ Replaced marching squares with a pure geometric "corner-tracing" algorithm that 
 - **Debug Visualization**: Perimeter points now properly outline coast contours
 - **Coordinate Alignment**: Corner calculations now match hex grid visualization exactly
 
+### Additional Fix: Coordinate Transformation
+- **Issue**: Coastline path and debug points were not aligned with hex grid due to different coordinate transformations
+- **Solution**: Applied same coordinate transformation (`pixel - minBounds + margin`) to both coastline path and debug points
+- **Result**: Coastline path and perimeter points now align perfectly with hex grid visualization
+
 ---
 
 ## Future Plans

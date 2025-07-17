@@ -164,27 +164,36 @@
                 `;
             });
             
+            // Transform coastline path coordinates to match hex grid visualization
+            const transformPath = (pathString) => {
+                return pathString.replace(/([ML])([-\d.]+)\s+([-\d.]+)/g, (match, command, x, y) => {
+                    const pixelX = parseFloat(x);
+                    const pixelY = parseFloat(y);
+                    const transformedX = pixelX - minX + hexSize;
+                    const transformedY = pixelY - minY + hexSize;
+                    return `${command}${transformedX} ${transformedY}`;
+                });
+            };
+            
             // Add coastline path
             if (coastlineResult.coastlinePath) {
-                const scale = hexSize * 2;
+                const transformedPath = transformPath(coastlineResult.coastlinePath);
                 svg += `
                     <path 
-                        d="${coastlineResult.coastlinePath}" 
+                        d="${transformedPath}" 
                         stroke="#ff0000" 
                         stroke-width="3" 
                         fill="none"
-                        transform="scale(${scale}) translate(${hexSize/scale}, ${hexSize/scale})"
                     />
                 `;
             }
             
             // Add debug perimeter points
             if (coastlineResult.debugPerimeterPoints) {
-                const scale = hexSize * 2;
                 coastlineResult.debugPerimeterPoints.forEach(point => {
-                    const scaledX = (point.x / scale) + hexSize;
-                    const scaledY = (point.y / scale) + hexSize;
-                    svg += `<circle cx="${scaledX}" cy="${scaledY}" r="2" fill="yellow" stroke="black" stroke-width="1" />`;
+                    const transformedX = point.x - minX + hexSize;
+                    const transformedY = point.y - minY + hexSize;
+                    svg += `<circle cx="${transformedX}" cy="${transformedY}" r="2" fill="yellow" stroke="black" stroke-width="1" />`;
                 });
             }
             
