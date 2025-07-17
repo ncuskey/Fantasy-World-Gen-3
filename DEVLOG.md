@@ -75,10 +75,10 @@ Switched to an even-q offset coordinate system that provides a true rectangular 
 - `src/steps/01_generateHeightmap-browser.js` (updated)
 - `src/demo/stepper.js` (updated)
 - `src/demo/stepper-simple.js` (updated)
-- `test-rectangular.html` (new test page)
+- `tests/browser/test-rectangular.html` (new test page)
 
 ### Testing
-- Created `test-rectangular.html` to verify rectangular layout
+- Created `tests/browser/test-rectangular.html` to verify rectangular layout
 - All existing tests pass with new grid system
 - Demo pages show perfect rectangular hex grid
 
@@ -268,14 +268,13 @@ Created the basic project structure for a fantasy world map generator with multi
 Fantasy-World-Gen-3/
 ├── src/
 │   ├── steps/           # Generation pipeline steps
+│   │   └── __tests__/   # Unit tests for steps
 │   ├── utils/           # Utility functions
 │   ├── demo/            # Demo and UI components
 │   └── grid/            # Grid system utilities
-├── tests/               # Test files
-├── docs/                # Documentation
+├── tests/
+│   └── browser/         # Browser-based test pages
 ├── demo.html            # Main demo page
-├── demo-fixed.html      # Fixed demo with CDN imports
-├── test-rectangular.html # Test page for rectangular grid
 ├── package.json         # Dependencies and scripts
 ├── vitest.config.js     # Vitest configuration
 ├── README.md            # Project documentation
@@ -361,7 +360,7 @@ Replaced marching squares with a pure geometric "corner-tracing" algorithm that 
 - `src/steps/02_maskCoastline.js` - Added hexSize parameter and debug output
 - `src/steps/02_maskCoastline-browser.js` - Same changes for browser compatibility
 - `src/demo/stepper.js` - Updated to pass correct hexSize and display debug points
-- `test-coastline-fix.html` - New test page for coordinate validation
+- `tests/browser/test-coastline-fix.html` - New test page for coordinate validation
 
 ### Validation
 - **Tests Passing**: All Vitest tests still pass with updated function signature

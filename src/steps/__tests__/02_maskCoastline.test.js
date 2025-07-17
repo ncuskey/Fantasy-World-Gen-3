@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { maskCoastline } from './02_maskCoastline.js';
+import { maskCoastline } from '../02_maskCoastline.js';
 
 describe('Coastline Masking', () => {
   it('should generate land mask and coastline path from heightmap using corner tracing', () => {

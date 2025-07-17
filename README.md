@@ -23,18 +23,29 @@ A procedural fantasy world map generator that creates realistic terrain, rivers,
 ## Project Structure
 
 ```
-src/
-├─ steps/
-│  ├─ 01_generateHeightmap.js    ✅ Creates base terrain using noise algorithms
-│  ├─ 02_maskCoastline.js        🔄 Identifies and processes land/water boundaries
-│  ├─ 03_simulateRivers.js       🔄 Generates river systems from high to low elevation
-│  ├─ 04_placeBiomes.js          🔄 Assigns biomes based on elevation and moisture
-│  ├─ 05_placeSettlements.js     🔄 Places cities, towns, and villages
-│  ├─ 06_generateRoads.js        🔄 Creates road networks connecting settlements
-│  ├─ 07_generateLabels.js       🔄 Generates names for features and settlements
-│  └─ 08_renderMap.js            🔄 Combines all layers into final visual map
-└─ demo/
-   └─ stepper.js                 ✅ Interactive UI to run and preview each step
+Fantasy-World-Gen-3/
+├── src/
+│   ├── steps/                   # Generation pipeline steps
+│   │   ├── 01_generateHeightmap.js    ✅ Creates base terrain using noise algorithms
+│   │   ├── 02_maskCoastline.js        🔄 Identifies and processes land/water boundaries
+│   │   ├── 03_simulateRivers.js       🔄 Generates river systems from high to low elevation
+│   │   ├── 04_placeBiomes.js          🔄 Assigns biomes based on elevation and moisture
+│   │   ├── 05_placeSettlements.js     🔄 Places cities, towns, and villages
+│   │   ├── 06_generateRoads.js        🔄 Creates road networks connecting settlements
+│   │   ├── 07_generateLabels.js       🔄 Generates names for features and settlements
+│   │   ├── 08_renderMap.js            🔄 Combines all layers into final visual map
+│   │   └── __tests__/                 # Unit tests for steps
+│   ├── utils/                   # Utility functions
+│   ├── grid/                    # Grid system utilities
+│   └── demo/                    # Demo and UI components
+│       └── stepper.js           ✅ Interactive UI to run and preview each step
+├── tests/
+│   └── browser/                 # Browser-based test pages
+├── demo.html                    # Main demo page
+├── package.json                 # Dependencies and scripts
+├── vitest.config.js            # Vitest configuration
+├── README.md                   # Project documentation
+└── DEVLOG.md                   # Development log
 ```
 
 ## Getting Started
@@ -119,7 +130,7 @@ The project includes comprehensive test infrastructure:
 ## Documentation
 
 - [DEVLOG.md](./DEVLOG.md) - Development progress and technical decisions
-- [HEIGHTMAP_UPGRADE.md](./HEIGHTMAP_UPGRADE.md) - Detailed upgrade from Gen 2 to Gen 3
+- [tests/browser/](./tests/browser/) - Browser-based test pages for validation
 
 ## License
 
