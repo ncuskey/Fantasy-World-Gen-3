@@ -8,6 +8,14 @@
 - Output includes all SVG paths (`coastlinePaths`), pixel points (`ringsPixel`), and compatibility fields for legacy rendering.
 - This supports arbitrary nesting of islands, lakes, and islands-in-lakes, with no extra work required for the renderer.
 
+## 2024-07-16 - Coastline Ring Orientation, Area, and Renderer Update
+
+- Added signed area/orientation detection to coastline rings in `maskCoastline.js`.
+- Each ring is now tagged as `clockwise` (land) or not (lake/water), and its area is computed.
+- Renderer updated to draw rings in area order (largest to smallest), fill land rings green with stroke, lakes blue with no stroke.
+- Tiny degenerate rings (area ≤ 0.5) are skipped.
+- This fixes z-order, fill-rule, and visual artifacts for nested coastlines and lakes.
+
 ## 2024-07-16 - Fix debug mask/heightmap alignment in stepper
 
 - Updated the debug check in the coastline step of the stepper to use the same seaLevel value as passed to maskCoastline (0.3).

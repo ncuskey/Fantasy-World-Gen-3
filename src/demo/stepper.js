@@ -247,6 +247,7 @@ class MapGeneratorStepper {
         this.mapData.landMask = coastlineResult.landMask;
         this.mapData.coastlinePath = coastlineResult.coastlinePath;
         this.mapData.cornerMask = coastlineResult.cornerMask; // Store cornerMask
+        this.mapData.ringsPixel = coastlineResult.ringsPixel; // Store ringsPixel
         // Debug hook: expose land mask
         if (typeof window !== 'undefined') {
           window.__coastlineMask = this.mapData.landMask;
@@ -471,7 +472,7 @@ class MapGeneratorStepper {
   }
 
   renderCoastline() {
-    if (!this.mapData.coastlinePath) return '';
+    if (!this.mapData.coastlinePaths && !this.mapData.ringsPixel) return '';
     
     // Use the same bounds as the hex grid for consistency
     const hexGrid = this.mapData.hexGrid;
@@ -493,20 +494,35 @@ class MapGeneratorStepper {
     const width = maxX - minX + hexSize * 2;
     const height = maxY - minY + hexSize * 2;
     
-    // Transform coastline path coordinates to match hex grid visualization
-    const transformPath = (pathString) => {
-      // Parse the path and transform each coordinate
-      return pathString.replace(/([ML])([-\d.]+)\s+([-\d.]+)/g, (match, command, x, y) => {
-        const pixelX = parseFloat(x);
-        const pixelY = parseFloat(y);
-        // Apply the same transformation as hex grid: subtract bounds and add margin
-        const transformedX = pixelX - minX + hexSize;
-        const transformedY = pixelY - minY + hexSize;
-        return `${command}${transformedX} ${transformedY}`;
+    // Render all coastline rings with correct fill/stroke
+    let ringsSvg = '';
+    if (this.mapData.ringsPixel) {
+      this.mapData.ringsPixel.forEach((pts, i) => {
+        const isLand = pts.clockwise;
+        const fill = isLand ? 'limegreen' : 'dodgerblue';
+        const stroke = isLand ? '#222' : 'none';
+        const strokeWidth = isLand ? 1 : 0;
+        const path = pts.map((p, j) => {
+          const x = p.x - minX + hexSize;
+          const y = p.y - minY + hexSize;
+          return `${j === 0 ? 'M' : 'L'}${x},${y}`;
+        }).join(' ') + ' Z';
+        ringsSvg += `<path d="${path}" fill="${fill}" stroke="${stroke}" stroke-width="${strokeWidth}" opacity="0.7" />`;
       });
-    };
-    
-    const transformedPath = transformPath(this.mapData.coastlinePath);
+    } else if (this.mapData.coastlinePath) {
+      // fallback: single path
+      const transformPath = (pathString) => {
+        return pathString.replace(/([ML])([\-\d.]+)\s+([\-\d.]+)/g, (match, command, x, y) => {
+          const pixelX = parseFloat(x);
+          const pixelY = parseFloat(y);
+          const transformedX = pixelX - minX + hexSize;
+          const transformedY = pixelY - minY + hexSize;
+          return `${command}${transformedX} ${transformedY}`;
+        });
+      };
+      const transformedPath = transformPath(this.mapData.coastlinePath);
+      ringsSvg += `<path d="${transformedPath}" stroke="#000" stroke-width="2" fill="none" />`;
+    }
     
     // Overlay color-coded cornerMask points
     let cornerPoints = '';
@@ -523,12 +539,7 @@ class MapGeneratorStepper {
       <div style="margin-top: 20px;">
         <h4>Coastline Visualization</h4>
         <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
-          <path 
-            d="${transformedPath}" 
-            stroke="#000" 
-            stroke-width="2" 
-            fill="none"
-          />
+          ${ringsSvg}
           ${cornerPoints}
         </svg>
         <p><strong>Land Mask:</strong> ${this.mapData.landMask ? `${this.mapData.landMask.filter(x => x === 1).length} land cells, ${this.mapData.landMask.filter(x => x === 0).length} sea cells` : 'Not available'}</p>

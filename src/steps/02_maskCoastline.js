@@ -96,13 +96,34 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
     if (ring.length > 2) rings.push(ring);
   }
 
-  // Convert rings of hexes to pixel points for rendering
-  const ringsPixel = rings.map(ring =>
-    ring.map(hex => {
+  // Helper: signed area for orientation (positive = clockwise)
+  function signedArea(ring) {
+    let area = 0;
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      area += (a.q * b.r - b.q * a.r);
+    }
+    return area / 2;
+  }
+
+  // After rings are built
+  rings.forEach(r => {
+    r.clockwise = signedArea(r) > 0;   // true = land ring
+    r.area = Math.abs(signedArea(r));
+  });
+  rings.sort((a, b) => b.area - a.area);   // draw big → small
+  const filteredRings = rings.filter(r => r.area > 0.5);  // drop < half-tile
+
+  // Convert filtered rings of hexes to pixel points for rendering
+  const ringsPixel = filteredRings.map(ring => {
+    const pts = ring.map(hex => {
       const { x, y } = hexToPixelFlatOffset(hex, hexSize);
       return { x, y };
-    })
-  );
+    });
+    pts.clockwise = ring.clockwise;
+    pts.area = ring.area;
+    return pts;
+  });
 
   // Build SVG path strings for each ring
   const coastlinePaths = ringsPixel.map(pts =>
@@ -132,7 +153,7 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
   return {
     landMask: Uint8Array.from(hexGrid.map(h => h.isLand ? 1 : 0)),
     coastlinePaths, // array of SVG path strings, one per ring
-    rings,          // array of hex arrays (with orientation)
+    rings: filteredRings,          // array of hex arrays (with orientation)
     ringsPixel,     // array of pixel point arrays
     coastlinePath,  // for compatibility: first ring as SVG path
     cornerMask
