@@ -1,5 +1,13 @@
 # Fantasy World Generator - Development Log
 
+## 2024-07-16 - Robust Nested Coastline Extraction
+
+- Replaced the coastline extraction logic in `maskCoastline.js` with a robust ring-walking algorithm.
+- Now finds every coastline edge (land↔water) and walks each disjoint ring independently.
+- Each ring is tagged by orientation (clockwise = land on left, counter-clockwise = water on left) for correct rendering and fill.
+- Output includes all SVG paths (`coastlinePaths`), pixel points (`ringsPixel`), and compatibility fields for legacy rendering.
+- This supports arbitrary nesting of islands, lakes, and islands-in-lakes, with no extra work required for the renderer.
+
 ## 2024-07-16 - Fix debug mask/heightmap alignment in stepper
 
 - Updated the debug check in the coastline step of the stepper to use the same seaLevel value as passed to maskCoastline (0.3).

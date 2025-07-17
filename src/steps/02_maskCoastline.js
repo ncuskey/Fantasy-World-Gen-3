@@ -14,50 +14,108 @@ import { hexToPixelFlatOffset } from "../utils/hexToPixel.js";
 // import { chaikin, simplify } from "../utils/geometry.js";
 
 /**
- * Trace coastline by scanning each hex’s edges against its 6 neighbors.
- *
- * @param {HeightmapData} data
+ * Trace all nested coastlines as rings, tagging orientation for correct fill.
+ * @param {HeightmapData} param0
  * @param {CoastlineOptions} options
  * @returns {{
  *   landMask: Uint8Array,
- *   coastlinePath: string,
+ *   coastlinePaths: string[],
+ *   rings: Array<HexCell[]>,
+ *   ringsPixel: Array<Array<{x:number,y:number}>>,
+ *   // For compatibility:
+ *   coastlinePath: string, // first ring as SVG path
  *   cornerMask: Array<{q:number, r:number, x:number, y:number, isLand:number}>
  * }}
  */
 export function maskCoastline({ hexGrid, heightMap }, options) {
-  const {
-    seaLevel,
-    hexSize,
-    smoothingIterations = 2,
-    simplifyTolerance = 1.5
-  } = options;
+  const { seaLevel, hexSize } = options;
 
-  // Try to infer grid width/height from hexGrid
-  // Assumes rectangular grid, even-q offset
-  const cols = Math.max(...hexGrid.map(h => h.col)) + 1;
-  const rows = Math.max(...hexGrid.map(h => h.row)) + 1;
-  const W = cols;
-  const H = rows;
+  // 1. Attach isLand to each hex
+  hexGrid.forEach((h, i) => h.isLand = heightMap[i] >= seaLevel);
 
-  // Debug: log hexSize
-  if (typeof window !== 'undefined') {
-    console.log('[maskCoastline] hexSize:', hexSize);
+  // 2. Build a neighbour lookup
+  const hexMap = new Map(hexGrid.map(h => [`${h.q},${h.r}`, h]));
+
+  // 3. Helper: 6 axial directions
+  const DIRS = [[1,0],[1,-1],[0,-1],[-1,0],[-1,1],[0,1]];
+
+  // 4. Build the dual-edge list: every edge between land and water
+  const edges = [];
+  hexGrid.forEach(h => {
+    DIRS.forEach((dir,i) => {
+      const nKey = `${h.q+dir[0]},${h.r+dir[1]}`;
+      const n = hexMap.get(nKey);
+      if (!n) return;                       // off-map
+      if (h.isLand !== n.isLand) {          // coastline edge
+        edges.push({ h, n, edgeIndex: i }); // store once
+      }
+    });
+  });
+
+  // 5. Walk each ring until all edges are consumed
+  const rings = [];
+  const used = new Set();
+
+  function key(a,b,index) {   // unique edge key
+    const [q1,r1] = [a.q,a.r], [q2,r2] = [b.q,b.r];
+    return q1 < q2 || (q1 === q2 && r1 < r2)
+         ? `${q1},${r1}-${q2},${r2}-${index}`
+         : `${q2},${r2}-${q1},${r1}-${index}`;
   }
 
-  // 1️⃣ build boolean landMask array
-  const landMask = hexGrid.map((cell, idx) =>
-    heightMap[idx] >= seaLevel ? 1 : 0
+  while (edges.length) {
+    const ring = [];
+    let { h, n, edgeIndex } = edges.pop();
+    const startKey = key(h,n,edgeIndex);
+
+    let current = h;
+    let dir = edgeIndex;
+
+    do {
+      const edgeK = key(current, n, dir);
+      if (used.has(edgeK)) break;
+      used.add(edgeK);
+
+      ring.push(current);
+
+      // step to next hex around the coastline
+      const nextDir = (dir + (current.isLand ? 1 : 5)) % 6; // keep land on the left
+      const [dq,dr] = DIRS[nextDir];
+      const nextHex = hexMap.get(`${current.q+dq},${current.r+dr}`);
+      if (!nextHex) break;
+
+      // find the edge between nextHex and current
+      const oppDir = (nextDir + 3) % 6;
+      const edgeKey = key(nextHex, current, oppDir);
+      used.add(edgeKey);
+
+      current = nextHex;
+      dir = oppDir;
+    } while (!used.has(startKey));
+
+    if (ring.length > 2) rings.push(ring);
+  }
+
+  // Convert rings of hexes to pixel points for rendering
+  const ringsPixel = rings.map(ring =>
+    ring.map(hex => {
+      const { x, y } = hexToPixelFlatOffset(hex, hexSize);
+      return { x, y };
+    })
   );
 
-  // map each cell’s axial coords to its index
-  const coordToIndex = new Map(
-    hexGrid.map((cell, idx) => [`${cell.q},${cell.r}`, idx])
+  // Build SVG path strings for each ring
+  const coastlinePaths = ringsPixel.map(pts =>
+    pts.map((p,i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(' ') + ' Z'
   );
 
-  // --- Build cornerMask: 6 corners per hex ---
+  // For compatibility: build a single path string for the first ring
+  const coastlinePath = coastlinePaths[0] || '';
+
+  // Build cornerMask for debug visualization (all hex corners with land/water info)
   const cornerMask = [];
   hexGrid.forEach((hex, idx) => {
-    const isLand = landMask[idx];
+    const isLand = hex.isLand;
     const { x: cx, y: cy } = hexToPixelFlatOffset(hex, hexSize);
     for (let i = 0; i < 6; i++) {
       const angle = (Math.PI / 180) * (60 * i); // Flat-topped: 0°, 60°, 120°, 180°, 240°, 300°
@@ -71,78 +129,12 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
     }
   });
 
-  // Debug assertions
-  if (typeof window !== 'undefined') {
-    if (landMask.length !== heightMap.length) {
-      console.warn('landMask.length !== heightMap.length:', landMask.length, heightMap.length);
-    }
-    if (cornerMask.length !== heightMap.length * 6) {
-      console.warn('cornerMask.length !== heightMap.length * 6:', cornerMask.length, heightMap.length * 6);
-    }
-  }
-
-  // Helper: get index in hexGrid from (col,row)
-  function getIndex(col, row) {
-    if (col < 0 || col >= W || row < 0 || row >= H) return null;
-    return col + row * W;
-  }
-
-  // 2️⃣ scan neighbors to collect all boundary segments
-  const segments = [];
-  // For flat‑topped hexes: each neighbor offset → its two corner angles (in degrees)
-  const edges = [
-    { dq:  1, dr:  0, a1: -30, a2:  30 },  // east edge
-    { dq:  0, dr:  1, a1:  30, a2:  90 },  // NE edge
-    { dq: -1, dr:  1, a1:  90, a2: 150 },  // NW edge
-    { dq: -1, dr:  0, a1: 150, a2: 210 },  // west edge
-    { dq:  0, dr: -1, a1: 210, a2: 270 },  // SW edge
-    { dq:  1, dr: -1, a1: 270, a2: 330 }   // SE edge
-  ];
-  let missingNeighborCount = 0;
-  for (let i = 0; i < hexGrid.length; i++) {
-    const cell = hexGrid[i];
-    const { x: cx, y: cy } = hexToPixelFlatOffset(cell, hexSize);
-    for (let e = 0; e < edges.length; e++) {
-      const { dq, dr, a1, a2 } = edges[e];
-      const key = `${cell.q + dq},${cell.r + dr}`;
-      const nIdx = coordToIndex.get(key);
-      if (typeof window !== 'undefined' && nIdx == null && missingNeighborCount < 20) {
-        console.log(`[maskCoastline] Missing neighbor at ${key} for cell ${cell.q},${cell.r}`);
-        missingNeighborCount++;
-      }
-      const neighborIsLand = nIdx != null && landMask[nIdx] === 1;
-      if (landMask[i] === 1 && !neighborIsLand) {
-        // convert angles to radians only when needed
-        const r1 = (Math.PI/180) * a1;
-        const r2 = (Math.PI/180) * a2;
-        const p1 = { x: cx + hexSize * Math.cos(r1), y: cy + hexSize * Math.sin(r1) };
-        const p2 = { x: cx + hexSize * Math.cos(r2), y: cy + hexSize * Math.sin(r2) };
-        segments.push([p1, p2]);
-      }
-    }
-  }
-
-  // 3️⃣ merge segments into loops (robust)
-  const loops = mergeSegmentsIntoLoops(segments);
-
-  // 4️⃣ smooth & simplify each loop
-  const finalLoops = loops.map(loop => {
-    let pts = chaikin(loop, smoothingIterations);
-    pts = simplify(pts, simplifyTolerance);
-    return pts;
-  });
-
-  // 5️⃣ build SVG path string
-  const coastlinePath = finalLoops
-    .map(pts => {
-      const d = pts.map((p,i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(" ") + " Z";
-      return d;
-    })
-    .join(" ");
-
   return {
-    landMask: Uint8Array.from(landMask),
-    coastlinePath,
+    landMask: Uint8Array.from(hexGrid.map(h => h.isLand ? 1 : 0)),
+    coastlinePaths, // array of SVG path strings, one per ring
+    rings,          // array of hex arrays (with orientation)
+    ringsPixel,     // array of pixel point arrays
+    coastlinePath,  // for compatibility: first ring as SVG path
     cornerMask
   };
 }
