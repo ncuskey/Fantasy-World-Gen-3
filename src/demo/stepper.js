@@ -247,6 +247,7 @@ class MapGeneratorStepper {
         this.mapData.landMask = coastlineResult.landMask;
         this.mapData.coastlinePath = coastlineResult.coastlinePath;
         this.mapData.debugPerimeterPoints = coastlineResult.debugPerimeterPoints;
+        this.mapData.cornerMask = coastlineResult.cornerMask; // Store cornerMask
         // Debug hook: expose land mask
         if (typeof window !== 'undefined') {
           window.__coastlineMask = this.mapData.landMask;
@@ -507,13 +508,14 @@ class MapGeneratorStepper {
     
     const transformedPath = transformPath(this.mapData.coastlinePath);
     
-    // Debug: Add perimeter points visualization with same transformation
-    let debugPoints = '';
-    if (this.mapData.debugPerimeterPoints) {
-      this.mapData.debugPerimeterPoints.forEach(point => {
-        const transformedX = point.x - minX + hexSize;
-        const transformedY = point.y - minY + hexSize;
-        debugPoints += `<circle cx="${transformedX}" cy="${transformedY}" r="2" fill="red" />`;
+    // Overlay color-coded cornerMask points
+    let cornerPoints = '';
+    if (this.mapData.cornerMask) {
+      this.mapData.cornerMask.forEach(corner => {
+        const transformedX = corner.x - minX + hexSize;
+        const transformedY = corner.y - minY + hexSize;
+        const color = corner.isLand ? 'limegreen' : 'dodgerblue';
+        cornerPoints += `<circle cx="${transformedX}" cy="${transformedY}" r="2" fill="${color}" stroke="#222" stroke-width="0.5" />`;
       });
     }
     
@@ -527,10 +529,10 @@ class MapGeneratorStepper {
             stroke-width="2" 
             fill="none"
           />
-          ${debugPoints}
+          ${cornerPoints}
         </svg>
         <p><strong>Land Mask:</strong> ${this.mapData.landMask ? `${this.mapData.landMask.filter(x => x === 1).length} land cells, ${this.mapData.landMask.filter(x => x === 0).length} sea cells` : 'Not available'}</p>
-        ${this.mapData.debugPerimeterPoints ? `<p><strong>Debug:</strong> ${this.mapData.debugPerimeterPoints.length} perimeter points shown in red</p>` : ''}
+        ${this.mapData.cornerMask ? `<p><strong>Debug:</strong> ${this.mapData.cornerMask.length} corners shown (green=land, blue=water)</p>` : ''}
       </div>
     `;
   }
@@ -564,7 +566,7 @@ class MapGeneratorStepper {
     
     let svg = `
       <div style="margin-top: 20px;">
-        <h4>Land Mask Debug (Black=Land, White=Sea)</h4>
+        <h4>Land Mask Debug (Black=Land, White=Sea, Green/Blue=CornerMask)</h4>
         <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
     `;
     
@@ -598,9 +600,20 @@ class MapGeneratorStepper {
       `;
     });
     
+    // Overlay color-coded cornerMask points
+    if (this.mapData.cornerMask) {
+      this.mapData.cornerMask.forEach(corner => {
+        const transformedX = corner.x - minX + hexSize;
+        const transformedY = corner.y - minY + hexSize;
+        const color = corner.isLand ? 'limegreen' : 'dodgerblue';
+        svg += `<circle cx="${transformedX}" cy="${transformedY}" r="2" fill="${color}" stroke="#222" stroke-width="0.5" />`;
+      });
+    }
+    
     svg += '</svg>';
     svg += `<p><strong>Land Mask Verification:</strong> ${landMask.filter(x => x === 1).length} land cells, ${landMask.filter(x => x === 0).length} sea cells</p>`;
     svg += `<p><strong>Sea Level:</strong> ${seaLevel}</p>`;
+    svg += this.mapData.cornerMask ? `<p><strong>Debug:</strong> ${this.mapData.cornerMask.length} corners shown (green=land, blue=water)</p>` : '';
     svg += '</div>';
     
     return svg;
