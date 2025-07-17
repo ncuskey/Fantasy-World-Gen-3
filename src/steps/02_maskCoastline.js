@@ -44,6 +44,11 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
     heightMap[idx] >= seaLevel ? 1 : 0
   );
 
+  // map each cell’s axial coords to its index
+  const coordToIndex = new Map(
+    hexGrid.map((cell, idx) => [`${cell.q},${cell.r}`, idx])
+  );
+
   // --- Build cornerMask: 6 corners per hex ---
   const cornerMask = [];
   hexGrid.forEach((hex, idx) => {
@@ -87,19 +92,15 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
   ];
   for (let i = 0; i < hexGrid.length; i++) {
     const cell = hexGrid[i];
-    const isLand = landMask[i] === 1;
     const { x: cx, y: cy } = hexToPixelFlatOffset(cell, hexSize);
     for (let edge = 0; edge < 6; edge++) {
       const [dq, dr] = dirs[edge];
-      // Convert to axial (q,r) for neighbor lookup
-      const nq = cell.q + dq, nr = cell.r + dr;
-      // Find neighbor index by matching q/r
-      const neighborIdx = hexGrid.findIndex(h => h.q === nq && h.r === nr);
-      const neighborIsLand = neighborIdx !== -1
-        ? landMask[neighborIdx] === 1
-        : !isLand; // treat missing neighbor as opposite
-      // Only emit one segment per edge (avoid duplicates)
-      if (isLand !== neighborIsLand && (neighborIdx === -1 || i < neighborIdx)) {
+      const key = `${cell.q + dq},${cell.r + dr}`;
+      const nIdx = coordToIndex.get(key);
+      // treat missing neighbor (map border) as water
+      const neighborIsLand = nIdx != null && landMask[nIdx] === 1;
+      // ONLY emit when this hex is land AND neighbor is water
+      if (landMask[i] === 1 && !neighborIsLand) {
         const a1 = (Math.PI/180)*(angles[edge]);
         const a2 = (Math.PI/180)*(angles[(edge + 1)%6]);
         const p1 = { x: cx + hexSize * Math.cos(a1), y: cy + hexSize * Math.sin(a1) };
