@@ -20,7 +20,8 @@ import { hexToPixelFlatOffset } from "../utils/hexToPixel.js";
  * @param {CoastlineOptions} options
  * @returns {{
  *   landMask: Uint8Array,
- *   coastlinePath: string
+ *   coastlinePath: string,
+ *   cornerMask: Array<{q:number, r:number, x:number, y:number, isLand:number}>
  * }}
  */
 export function maskCoastline({ hexGrid, heightMap }, options) {
@@ -42,6 +43,33 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
   const landMask = hexGrid.map((cell, idx) =>
     heightMap[idx] >= seaLevel ? 1 : 0
   );
+
+  // --- Build cornerMask: 6 corners per hex ---
+  const cornerMask = [];
+  hexGrid.forEach((hex, idx) => {
+    const isLand = landMask[idx];
+    const { x: cx, y: cy } = hexToPixelFlatOffset(hex, hexSize);
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (30 + i * 60);
+      cornerMask.push({
+        q: hex.q,
+        r: hex.r,
+        x: cx + hexSize * Math.cos(angle),
+        y: cy + hexSize * Math.sin(angle),
+        isLand
+      });
+    }
+  });
+
+  // Debug assertions
+  if (typeof window !== 'undefined') {
+    if (landMask.length !== heightMap.length) {
+      console.warn('landMask.length !== heightMap.length:', landMask.length, heightMap.length);
+    }
+    if (cornerMask.length !== heightMap.length * 6) {
+      console.warn('cornerMask.length !== heightMap.length * 6:', cornerMask.length, heightMap.length * 6);
+    }
+  }
 
   // Helper: get index in hexGrid from (col,row)
   function getIndex(col, row) {
@@ -101,7 +129,8 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
 
   return {
     landMask: Uint8Array.from(landMask),
-    coastlinePath
+    coastlinePath,
+    cornerMask
   };
 }
 
