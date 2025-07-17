@@ -1,5 +1,31 @@
 # Fantasy World Generator - Development Log
 
+## 2024-12-19 - Debug Hooks for Heightmap and Land Mask Alignment
+
+### Problem
+Diagnosing misalignment between the heightmap, land mask, and coastline visualization can be difficult without direct access to the underlying data arrays and a way to check their alignment.
+
+### Solution
+Added debug hooks and alignment checks to the stepper UI:
+- After Step 1, the generated heightmap is exposed as `window.__heightmap`.
+- After Step 2, the land mask is exposed as `window.__coastlineMask`.
+- After Step 2, the console logs the lengths of both arrays and runs a quick alignment check, warning if any mismatches are found (up to 10 shown, with a total count).
+
+#### Technical Details
+- Debug hooks are set in `src/demo/stepper.js` after each step.
+- The alignment check uses the same threshold as the mask step to ensure consistency.
+- Console output helps quickly diagnose grid size mismatches, threshold drift, or indexing bugs.
+
+#### Files Modified
+- `src/demo/stepper.js` - Added debug hooks and alignment check after Step 1 and Step 2.
+
+#### Benefits
+- **Faster Debugging**: Instantly see if the mask and heightmap are aligned.
+- **Transparency**: Underlying data is easily accessible for inspection in the browser console.
+- **Reliability**: Reduces the risk of subtle bugs in future development.
+
+---
+
 ## 2024-12-19 - Robust Coastline Loop Merging and Smoothing
 
 ### Problem

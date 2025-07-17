@@ -228,6 +228,10 @@ class MapGeneratorStepper {
         });
         this.mapData.hexGrid = heightmapResult.hexGrid;
         this.mapData.heightmap = heightmapResult.heightMap;
+        // Debug hook: expose heightmap
+        if (typeof window !== 'undefined') {
+          window.__heightmap = this.mapData.heightmap;
+        }
         break;
         
       case 1: // Mask Coastline
@@ -243,6 +247,34 @@ class MapGeneratorStepper {
         this.mapData.landMask = coastlineResult.landMask;
         this.mapData.coastlinePath = coastlineResult.coastlinePath;
         this.mapData.debugPerimeterPoints = coastlineResult.debugPerimeterPoints;
+        // Debug hook: expose land mask
+        if (typeof window !== 'undefined') {
+          window.__coastlineMask = this.mapData.landMask;
+          // Log lengths
+          console.log('heightmap length:', this.mapData.heightmap?.length);
+          console.log('mask length:', this.mapData.landMask?.length);
+          // Alignment check (if both present and same length)
+          const hm = this.mapData.heightmap;
+          const mask = this.mapData.landMask;
+          if (hm && mask && hm.length === mask.length) {
+            let mismatches = 0;
+            for (let i = 0; i < hm.length; i++) {
+              // Use the same threshold as maskCoastline
+              const isLand = hm[i] >= 0.5 ? 1 : 0;
+              if (mask[i] !== isLand) {
+                if (mismatches < 10) {
+                  console.warn(`Mismatch at idx ${i}: height=${hm[i]}, mask=${mask[i]}`);
+                }
+                mismatches++;
+              }
+            }
+            if (mismatches === 0) {
+              console.log('Mask and heightmap are aligned.');
+            } else {
+              console.warn(`Total mismatches: ${mismatches}`);
+            }
+          }
+        }
         break;
         
       case 2: // Simulate Rivers
