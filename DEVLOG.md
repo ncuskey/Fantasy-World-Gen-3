@@ -1,5 +1,13 @@
 # Fantasy World Generator - Development Log
 
+## 2024-07-16 - Shared Heightmap Core and Unified Entrypoints
+
+- Factored all grid and noise logic into a single shared module: `src/utils/generateHeightmapCore.js`.
+- Both Node (`01_generateHeightmap.js`) and browser (`01_generateHeightmap-browser.js`) entrypoints now delegate to the shared core, passing in their environment-specific noise/seed functions.
+- Ensures that both environments always use the same robust, offset-based grid and elevation logic.
+- Downstream steps (coastline, rivers, etc.) now always receive a grid of `{col, row, q, r}` cells.
+- Demo HTML and stepper are confirmed to use the browser entrypoint, so the UI always gets the correct grid shape and pixel mapping.
+
 ## 2024-07-16 - Robust Nested Coastline Extraction
 
 - Replaced the coastline extraction logic in `maskCoastline.js` with a robust ring-walking algorithm.
