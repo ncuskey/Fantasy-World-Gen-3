@@ -1,23 +1,20 @@
-// Import hexToPixelFlatOffset for corner calculations
-import { hexToPixelFlatOffset } from '../utils/hexToPixel.js';
-
 /**
- * @typedef {{ col: number, row: number, q: number, r: number }} HexCell
+ * @typedef {{ col:number, row:number, q:number, r:number }} HexCell
  * @typedef {{ hexGrid: HexCell[], heightMap: Float32Array }} HeightmapData
  * @typedef {{
  *   seaLevel: number,
  *   hexSize: number,
- *   smoothingIterations: number,
- *   simplifyTolerance: number
+ *   smoothingIterations?: number,
+ *   simplifyTolerance?: number
  * }} CoastlineOptions
- * @typedef {{ x: number, y: number }} Point
- * @typedef {Point[]} CornerLoop
  */
 
+import { hexToPixelFlatOffset } from "../utils/hexToPixel.js";
+// Optional smoothing/simplify stubs:
+// import { chaikin, simplify } from "../utils/geometry.js";
+
 /**
- * From a flat heightmap, produce:
- * - a landMask: Uint8Array (1=land, 0=sea),
- * - a corner-traced SVG path string for the coastline.
+ * Trace coastline by scanning each hex’s edges against its 6 neighbors.
  *
  * @param {HeightmapData} data
  * @param {CoastlineOptions} options
@@ -27,205 +24,186 @@ import { hexToPixelFlatOffset } from '../utils/hexToPixel.js';
  * }}
  */
 export function maskCoastline({ hexGrid, heightMap }, options) {
-  const { seaLevel = 0.5, hexSize = 20, smoothingIterations = 2, simplifyTolerance = 0.1 } = options;
-  
-  // 1. Compute water mask
-  const isWater = new Array(heightMap.length);
-  for (let i = 0; i < heightMap.length; i++) {
-    isWater[i] = heightMap[i] < seaLevel;
+  const {
+    seaLevel,
+    hexSize,
+    smoothingIterations = 2,
+    simplifyTolerance = 1.5
+  } = options;
+
+  // Try to infer grid width/height from hexGrid
+  // Assumes rectangular grid, even-q offset
+  const cols = Math.max(...hexGrid.map(h => h.col)) + 1;
+  const rows = Math.max(...hexGrid.map(h => h.row)) + 1;
+  const W = cols;
+  const H = rows;
+
+  // 1️⃣ build boolean landMask array
+  const landMask = hexGrid.map((cell, idx) =>
+    heightMap[idx] >= seaLevel ? 1 : 0
+  );
+
+  // Helper: get index in hexGrid from (col,row)
+  function getIndex(col, row) {
+    if (col < 0 || col >= W || row < 0 || row >= H) return null;
+    return col + row * W;
   }
-  
-  // 2. Gather corner points from water hexes
-  const cornerList = gatherWaterHexCorners(hexGrid, isWater, hexSize);
-  
-  // 3. Filter out interior corners (shared by ≥3 water hexes)
-  const perimeterCorners = filterInteriorCorners(cornerList);
-  
-  // Debug logging
-  console.log("total water hexes:", isWater.filter(w => w).length);
-  console.log("total raw corners:", cornerList.length);
-  console.log("perimeter corners:", perimeterCorners.length);
-  console.log("hexSize used:", hexSize);
-  
-  // 4. Cluster and sort into closed loops
-  const cornerLoops = clusterAndSortCorners(perimeterCorners, hexSize);
-  
-  // 5. Build SVG path from corner loops
-  const coastlinePath = cornerLoopsToSVGPath(cornerLoops);
-  
-  // 6. Create land mask (inverted from water mask)
-  const landMask = new Uint8Array(heightMap.length);
-  for (let i = 0; i < heightMap.length; i++) {
-    landMask[i] = isWater[i] ? 0 : 1;
+
+  // 2️⃣ scan neighbors to collect all boundary segments
+  const segments = [];
+  const angles = [30, 90, 150, 210, 270, 330]; // flat-topped corner angles
+  // Flat-topped neighbor directions (even-q offset)
+  const dirs = [
+    [+1,  0], [0, +1], [-1, +1],
+    [-1,  0], [0, -1], [+1, -1]
+  ];
+  for (let i = 0; i < hexGrid.length; i++) {
+    const cell = hexGrid[i];
+    const isLand = landMask[i] === 1;
+    const { x: cx, y: cy } = hexToPixelFlatOffset(cell, hexSize);
+    for (let edge = 0; edge < 6; edge++) {
+      const [dq, dr] = dirs[edge];
+      // Convert to axial (q,r) for neighbor lookup
+      const nq = cell.q + dq, nr = cell.r + dr;
+      // Find neighbor index by matching q/r
+      const neighborIdx = hexGrid.findIndex(h => h.q === nq && h.r === nr);
+      const neighborIsLand = neighborIdx !== -1
+        ? landMask[neighborIdx] === 1
+        : !isLand; // treat missing neighbor as opposite
+      // Only emit one segment per edge (avoid duplicates)
+      if (isLand !== neighborIsLand && (neighborIdx === -1 || i < neighborIdx)) {
+        const a1 = (Math.PI/180)*(angles[edge]);
+        const a2 = (Math.PI/180)*(angles[(edge + 1)%6]);
+        const p1 = { x: cx + hexSize * Math.cos(a1), y: cy + hexSize * Math.sin(a1) };
+        const p2 = { x: cx + hexSize * Math.cos(a2), y: cy + hexSize * Math.sin(a2) };
+        segments.push([p1, p2]);
+      }
+    }
   }
-  
+
+  // 3️⃣ merge segments into loops (robust)
+  const loops = mergeSegmentsIntoLoops(segments);
+
+  // 4️⃣ smooth & simplify each loop
+  const finalLoops = loops.map(loop => {
+    let pts = chaikin(loop, smoothingIterations);
+    pts = simplify(pts, simplifyTolerance);
+    return pts;
+  });
+
+  // 5️⃣ build SVG path string
+  const coastlinePath = finalLoops
+    .map(pts => {
+      const d = pts.map((p,i) => `${i===0?'M':'L'}${p.x},${p.y}`).join(" ") + " Z";
+      return d;
+    })
+    .join(" ");
+
   return {
-    landMask,
-    coastlinePath,
-    debugPerimeterPoints: perimeterCorners // For debugging visualization
+    landMask: Uint8Array.from(landMask),
+    coastlinePath
   };
 }
 
+// --- Helpers ---
+
 /**
- * Gather corner points from all water hexes
- * @param {HexCell[]} hexGrid
- * @param {boolean[]} isWater
- * @param {number} hexSize
- * @returns {Point[]}
+ * Merge boundary segments into closed loops using adjacency map.
+ * @param {[{x:number,y:number},{x:number,y:number}][]} segments
+ * @returns {Array<Array<{x:number,y:number}>>}
  */
-function gatherWaterHexCorners(hexGrid, isWater, hexSize) {
-  const cornerList = [];
-  
-  for (let i = 0; i < hexGrid.length; i++) {
-    if (!isWater[i]) continue; // Skip non-water hexes
-    
-    const hex = hexGrid[i];
-    
-    // Convert offset coords to pixel center
-    const { x: cx, y: cy } = hexToPixelFlatOffset(hex, hexSize);
-    
-    // Compute six flat-topped corners at angles 30°, 90°, 150°, 210°, 270°, 330°
-    const corners = Array.from({length: 6}, (_, j) => {
-      const angle = (Math.PI / 180) * (30 + j * 60);
-      return { 
-        x: cx + hexSize * Math.cos(angle),
-        y: cy + hexSize * Math.sin(angle)
-      };
-    });
-    
-    // Add each corner (rounded to fixed precision)
-    corners.forEach(corner => {
-      cornerList.push({
-        x: Math.round(corner.x * 100) / 100,
-        y: Math.round(corner.y * 100) / 100
-      });
-    });
+function mergeSegmentsIntoLoops(segments) {
+  // Index points as string keys (rounded for floating-point safety)
+  function ptKey(p) {
+    return `${p.x.toFixed(3)},${p.y.toFixed(3)}`;
   }
-  
-  return cornerList;
-}
-
-/**
- * Filter out interior corners (shared by ≥3 water hexes)
- * @param {Point[]} cornerList
- * @returns {Point[]}
- */
-function filterInteriorCorners(cornerList) {
-  // Build a Map<string,count> keyed by "x,y"
-  const cornerCounts = new Map();
-  
-  cornerList.forEach(corner => {
-    const key = `${corner.x},${corner.y}`;
-    cornerCounts.set(key, (cornerCounts.get(key) || 0) + 1);
-  });
-  
-  // Keep only keys with count < 3 (perimeter corners)
-  const perimeterCorners = [];
-  cornerCounts.forEach((count, key) => {
-    if (count < 3) {
-      const [x, y] = key.split(',').map(Number);
-      perimeterCorners.push({ x, y });
-    }
-  });
-  
-  return perimeterCorners;
-}
-
-/**
- * Cluster and sort perimeter corners into closed loops
- * @param {Point[]} perimeterCorners
- * @param {number} hexSize
- * @returns {CornerLoop[]}
- */
-function clusterAndSortCorners(perimeterCorners, hexSize) {
-  if (perimeterCorners.length === 0) return [];
-  
-  const sideLength = hexSize * Math.sqrt(3); // Distance between adjacent corners
-  const connectionThreshold = sideLength * 1.15; // Tighter tolerance for better clustering
-  
-  const clusters = [];
-  const used = new Set();
-  
-  // Find connected groups of points
-  for (let i = 0; i < perimeterCorners.length; i++) {
-    if (used.has(i)) continue;
-    
-    const cluster = [perimeterCorners[i]];
-    used.add(i);
-    
-    // Find all points connected to this cluster
-    let changed = true;
-    while (changed) {
-      changed = false;
-      
-      for (let j = 0; j < perimeterCorners.length; j++) {
-        if (used.has(j)) continue;
-        
-        const point = perimeterCorners[j];
-        
-        // Check if this point connects to any point in the cluster
-        for (const clusterPoint of cluster) {
-          const distance = Math.sqrt(
-            Math.pow(point.x - clusterPoint.x, 2) + 
-            Math.pow(point.y - clusterPoint.y, 2)
-          );
-          
-          if (distance <= connectionThreshold) {
-            cluster.push(point);
-            used.add(j);
-            changed = true;
+  // Build adjacency map
+  const neighbors = new Map();
+  for (const [a, b] of segments) {
+    const ka = ptKey(a), kb = ptKey(b);
+    if (!neighbors.has(ka)) neighbors.set(ka, { pt: a, adj: new Set() });
+    if (!neighbors.has(kb)) neighbors.set(kb, { pt: b, adj: new Set() });
+    neighbors.get(ka).adj.add(kb);
+    neighbors.get(kb).adj.add(ka);
+  }
+  // Track used edges
+  const usedEdges = new Set();
+  const loops = [];
+  // Helper to mark edge as used
+  function edgeKey(k1, k2) {
+    return k1 < k2 ? `${k1}|${k2}` : `${k2}|${k1}`;
+  }
+  // Walk loops
+  for (const [startKey, { pt: start }] of neighbors) {
+    // Find an unused edge from this point
+    for (const nextKey of neighbors.get(startKey).adj) {
+      const ek = edgeKey(startKey, nextKey);
+      if (usedEdges.has(ek)) continue;
+      // Start a new loop
+      const loop = [neighbors.get(startKey).pt];
+      let prevKey = startKey;
+      let currKey = nextKey;
+      usedEdges.add(ek);
+      while (currKey !== startKey) {
+        loop.push(neighbors.get(currKey).pt);
+        // Find next unused neighbor
+        const currAdj = neighbors.get(currKey).adj;
+        let found = false;
+        for (const nKey of currAdj) {
+          if (nKey === prevKey) continue;
+          const eKey = edgeKey(currKey, nKey);
+          if (!usedEdges.has(eKey)) {
+            usedEdges.add(eKey);
+            prevKey = currKey;
+            currKey = nKey;
+            found = true;
             break;
           }
         }
+        if (!found) break; // Dead end (shouldn't happen for closed loops)
       }
-    }
-    
-    if (cluster.length >= 3) { // Only keep clusters with at least 3 points
-      clusters.push(cluster);
+      if (loop.length > 2) loops.push(loop);
     }
   }
-  
-  // Sort each cluster into a closed loop
-  return clusters.map(cluster => {
-    // Compute centroid
-    const cx = cluster.reduce((sum, p) => sum + p.x, 0) / cluster.length;
-    const cy = cluster.reduce((sum, p) => sum + p.y, 0) / cluster.length;
-    
-    // Sort points by angle from centroid
-    return cluster.sort((a, b) => {
-      const angleA = Math.atan2(a.y - cy, a.x - cx);
-      const angleB = Math.atan2(b.y - cy, b.x - cx);
-      return angleA - angleB;
-    });
-  });
+  return loops;
 }
 
 /**
- * Convert corner loops to SVG path string
- * @param {CornerLoop[]} cornerLoops
- * @returns {string}
+ * Chaikin’s corner-cutting smoothing.
+ * @param {Array<{x:number,y:number}>} points
+ * @param {number} iterations
+ * @returns {Array<{x:number,y:number}>}
  */
-function cornerLoopsToSVGPath(cornerLoops) {
-  if (cornerLoops.length === 0) return "";
-  
-  const pathParts = cornerLoops.map(loop => {
-    if (loop.length === 0) return "";
-    
-    const first = loop[0];
-    let path = `M${first.x} ${first.y}`;
-    
-    for (let i = 1; i < loop.length; i++) {
-      const point = loop[i];
-      path += ` L${point.x} ${point.y}`;
+function chaikin(points, iterations) {
+  let pts = points;
+  for (let k = 0; k < iterations; k++) {
+    const next = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p0 = pts[i];
+      const p1 = pts[(i+1) % pts.length];
+      next.push({
+        x: 0.75*p0.x + 0.25*p1.x,
+        y: 0.75*p0.y + 0.25*p1.y
+      });
+      next.push({
+        x: 0.25*p0.x + 0.75*p1.x,
+        y: 0.25*p0.y + 0.75*p1.y
+      });
     }
-    
-    // Close the loop
-    path += " Z";
-    
-    return path;
-  });
-  
-  return pathParts.join(" ");
+    pts = next;
+  }
+  return pts;
 }
 
-// TODO: add Vitest tests verifying mask & path 
+/**
+ * Douglas–Peucker simplification stub
+ * @param {Array<{x:number,y:number}>} points
+ * @param {number} epsilon
+ * @returns {Array<{x:number,y:number}>}
+ */
+function simplify(points, epsilon) {
+  // TODO: Implement Ramer–Douglas–Peucker
+  return points;
+}
+
+// TODO: Add Vitest tests to validate landMask and coastlinePath 

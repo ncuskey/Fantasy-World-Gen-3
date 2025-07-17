@@ -1,5 +1,31 @@
 # Fantasy World Generator - Development Log
 
+## 2024-12-19 - Robust Coastline Loop Merging and Smoothing
+
+### Problem
+Previous coastline extraction produced unordered or fragmented edge segments, resulting in jagged, discontinuous, or duplicated coastlines. There was no robust way to merge boundary segments into true closed loops, and the output was visually jagged.
+
+### Solution
+Implemented a robust segment-to-loop merging algorithm using an adjacency map and endpoint indexing, followed by Chaikin smoothing and (stubbed) Douglas–Peucker simplification for each loop.
+
+#### Technical Details
+- **Segment Indexing**: Each segment endpoint is indexed as a string key (rounded to 3 decimal places) for floating-point safety.
+- **Adjacency Map**: For each segment [A→B], both A and B are added to each other's neighbor set.
+- **Loop Extraction**: Loops are walked by following unused edges from any endpoint, marking edges as used, and collecting ordered points until the loop closes.
+- **Smoothing**: Each loop is smoothed using Chaikin's corner-cutting algorithm (2 iterations by default).
+- **Simplification**: Each loop is passed through a (stubbed) Douglas–Peucker simplification (epsilon=1.5 by default).
+- **SVG Path Output**: The final coastline is output as a single SVG path string, with each loop as a closed subpath.
+
+#### Files Modified
+- `src/steps/02_maskCoastline.js` - Replaced naive merging with robust adjacency-based loop extraction, added Chaikin smoothing, and stubbed simplification.
+
+#### Benefits
+- **True Closed Loops**: Coastlines are now continuous, ordered, and non-duplicated.
+- **Smooth Appearance**: Chaikin smoothing produces visually pleasing, natural coastlines.
+- **Extensible**: Ready for further improvements (e.g., real Douglas–Peucker, Vitest tests).
+
+---
+
 ## 2024-12-19 - Even-Q Offset Grid Implementation
 
 ### Problem
