@@ -59,9 +59,27 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
     landMask[i] = isWater[i] ? 0 : 1;
   }
   
+  // 7. Build cornerMask for debug visualization (all hex corners with land/water info)
+  const cornerMask = [];
+  hexGrid.forEach((hex, idx) => {
+    const isLand = landMask[idx];
+    const { x: cx, y: cy } = hexToPixelFlatOffset(hex, hexSize);
+    for (let i = 0; i < 6; i++) {
+      const angle = (Math.PI / 180) * (60 * i); // Flat-topped: 0°, 60°, 120°, 180°, 240°, 300°
+      cornerMask.push({
+        q: hex.q,
+        r: hex.r,
+        x: cx + hexSize * Math.cos(angle),
+        y: cy + hexSize * Math.sin(angle),
+        isLand
+      });
+    }
+  });
+  
   return {
     landMask,
     coastlinePath,
+    cornerMask,
     debugPerimeterPoints: perimeterCorners // For debugging visualization
   };
 }
@@ -84,9 +102,9 @@ function gatherWaterHexCorners(hexGrid, isWater, hexSize) {
     // Convert offset coords to pixel center
     const { x: cx, y: cy } = hexToPixelFlatOffset(hex, hexSize);
     
-    // Compute six flat-topped corners at angles 30°, 90°, 150°, 210°, 270°, 330°
+    // Compute six flat-topped corners at angles 0°, 60°, 120°, 180°, 240°, 300°
     const corners = Array.from({length: 6}, (_, j) => {
-      const angle = (Math.PI / 180) * (30 + j * 60);
+      const angle = (Math.PI / 180) * (60 * j);
       return { 
         x: cx + hexSize * Math.cos(angle),
         y: cy + hexSize * Math.sin(angle)

@@ -246,7 +246,6 @@ class MapGeneratorStepper {
         });
         this.mapData.landMask = coastlineResult.landMask;
         this.mapData.coastlinePath = coastlineResult.coastlinePath;
-        this.mapData.debugPerimeterPoints = coastlineResult.debugPerimeterPoints;
         this.mapData.cornerMask = coastlineResult.cornerMask; // Store cornerMask
         // Debug hook: expose land mask
         if (typeof window !== 'undefined') {

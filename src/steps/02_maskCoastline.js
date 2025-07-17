@@ -50,7 +50,7 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
     const isLand = landMask[idx];
     const { x: cx, y: cy } = hexToPixelFlatOffset(hex, hexSize);
     for (let i = 0; i < 6; i++) {
-      const angle = (Math.PI / 180) * (30 + i * 60);
+      const angle = (Math.PI / 180) * (60 * i); // Flat-topped: 0°, 60°, 120°, 180°, 240°, 300°
       cornerMask.push({
         q: hex.q,
         r: hex.r,
@@ -79,7 +79,7 @@ export function maskCoastline({ hexGrid, heightMap }, options) {
 
   // 2️⃣ scan neighbors to collect all boundary segments
   const segments = [];
-  const angles = [30, 90, 150, 210, 270, 330]; // flat-topped corner angles
+  const angles = [0, 60, 120, 180, 240, 300]; // flat-topped corner angles
   // Flat-topped neighbor directions (even-q offset)
   const dirs = [
     [+1,  0], [0, +1], [-1, +1],

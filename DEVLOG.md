@@ -400,6 +400,53 @@ Replaced marching squares with a pure geometric "corner-tracing" algorithm that 
 
 ---
 
+## 2024-12-19 - Debug Visualization Fixes
+
+### Issue
+The debug visualizations for the coastline step were not working:
+- Red dots on coastline visualization were missing
+- Green/blue corner marks on Land Mask Debug were missing
+
+### Root Cause Analysis
+1. **Property name mismatch**: Stepper was trying to access `debugPerimeterPoints` but coastline step returned `cornerMask`
+2. **Incorrect hex corner angles**: Both Node and browser versions used wrong angles for flat-topped hexes
+3. **Missing cornerMask in browser version**: Browser version didn't generate cornerMask array needed for debug visualization
+
+### Technical Details
+
+#### Hex Corner Angles Fix
+- **Before**: `(30 + i * 60)` degrees - incorrect for flat-topped hexes
+- **After**: `(60 * i)` degrees - correct for flat-topped hexes (0°, 60°, 120°, 180°, 240°, 300°)
+
+This affects:
+- Corner generation in both Node and browser versions
+- Segment generation angles in Node version
+- Debug visualization alignment
+
+#### Files Modified
+- `src/demo/stepper.js`: Removed reference to non-existent `debugPerimeterPoints`
+- `src/steps/02_maskCoastline.js`: Fixed corner angles and segment angles
+- `src/steps/02_maskCoastline-browser.js`: Fixed corner angles and added cornerMask generation
+
+### Debug Visualizations Now Working
+1. **Coastline Visualization**: 
+   - Black coastline path
+   - Green dots for land hex corners
+   - Blue dots for water hex corners
+
+2. **Land Mask Debug**:
+   - Black hexes for land, white hexes for sea
+   - Green dots for land hex corners
+   - Blue dots for water hex corners
+
+### Testing
+- All tests passing
+- Debug output shows correct counts
+- Heightmap and land mask alignment verified
+- Demo visualizations working properly
+
+---
+
 ## Future Plans
 
 ### Next Steps
