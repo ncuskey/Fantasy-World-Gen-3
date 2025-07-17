@@ -239,7 +239,7 @@ class MapGeneratorStepper {
           hexGrid: this.mapData.hexGrid,
           heightMap: this.mapData.heightmap
         }, {
-          seaLevel: 0.5,
+          seaLevel: 0.3, // Lowered from 0.5 for more land
           hexSize: 15, // Match the hexSize used in renderHexGrid
           smoothingIterations: 2,
           simplifyTolerance: 0.1
@@ -256,11 +256,12 @@ class MapGeneratorStepper {
           // Alignment check (if both present and same length)
           const hm = this.mapData.heightmap;
           const mask = this.mapData.landMask;
+          const seaLevel = 0.3; // Must match the value passed to maskCoastline
           if (hm && mask && hm.length === mask.length) {
             let mismatches = 0;
             for (let i = 0; i < hm.length; i++) {
               // Use the same threshold as maskCoastline
-              const isLand = hm[i] >= 0.5 ? 1 : 0;
+              const isLand = hm[i] >= seaLevel ? 1 : 0;
               if (mask[i] !== isLand) {
                 if (mismatches < 10) {
                   console.warn(`Mismatch at idx ${i}: height=${hm[i]}, mask=${mask[i]}`);

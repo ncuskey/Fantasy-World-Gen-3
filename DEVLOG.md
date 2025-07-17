@@ -1,5 +1,11 @@
 # Fantasy World Generator - Development Log
 
+## 2024-07-16 - Fix debug mask/heightmap alignment in stepper
+
+- Updated the debug check in the coastline step of the stepper to use the same seaLevel value as passed to maskCoastline (0.3).
+- This ensures the land mask and debug logic match, eliminating mismatch warnings in the console.
+- Now, the debug output accurately reflects the mask/heightmap alignment for the current sea level setting.
+
 ## 2024-12-19 - Debug Hooks for Heightmap and Land Mask Alignment
 
 ### Problem
