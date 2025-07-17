@@ -22,6 +22,9 @@ if (typeof window === 'undefined') {
   seedrandom = seedrandomModule.default;
 }
 
+import { createHexGrid } from '../grid/hexGrid.js';               // even‑q offset grid generator
+import { hexToPixelFlatOffset } from '../utils/hexToPixel.js';  // converts {col,row} → pixel
+
 /**
  * @typedef {{ q: number, r: number, s: number }} HexCell
  * @typedef {{
@@ -37,45 +40,6 @@ if (typeof window === 'undefined') {
  *   seaLevel?: number
  * }} HeightmapOptions
  */
-
-/**
- * Create a hex grid with the specified dimensions.
- * Uses axial coordinate system (q, r, s) where q + r + s = 0.
- * Generates a proper vertical hex grid.
- *
- * @param {number} gridWidth - Number of hex columns
- * @param {number} gridHeight - Number of hex rows
- * @returns {HexCell[]} Array of hex cells with axial coordinates
- */
-function createHexGrid(gridWidth, gridHeight) {
-  const hexGrid = [];
-  
-  // Generate a proper vertical hex grid
-  for (let r = 0; r < gridHeight; r++) {
-    for (let q = 0; q < gridWidth; q++) {
-      const s = -q - r;
-      hexGrid.push({ q, r, s });
-    }
-  }
-  
-  return hexGrid;
-}
-
-/**
- * Convert hex coordinates to pixel coordinates for noise sampling.
- * Flat-topped orientation:
- *   x = (3/2) * size * q
- *   y = sqrt(3) * size * (r + q/2)
- *
- * @param {HexCell} hex - Hex cell coordinates
- * @param {number} hexSize - Size of each hex
- * @returns {{ x: number, y: number }} Pixel coordinates
- */
-function hexToPixel(hex, hexSize) {
-  const x = (3/2) * hexSize * hex.q;
-  const y = (Math.sqrt(3) * hexSize) * (hex.r + hex.q / 2);
-  return { x, y };
-}
 
 /**
  * Generate a hex-grid and associated elevation data.
@@ -102,8 +66,11 @@ export async function generateHeightmap(seed, options) {
   const rng = seedrandom(seed);
   const noise2D = createNoise2D(rng);
   
-  // Create hex grid
+  // Create an even‑q offset grid with {col,row,q,r}
   const hexGrid = createHexGrid(gridWidth, gridHeight);
+  if (typeof window !== 'undefined') {
+    console.log('First hexGrid cell:', hexGrid[0]);
+  }
   
   // Calculate hex size based on grid dimensions
   const hexSize = Math.min(1.0 / gridWidth, 1.0 / gridHeight) * 2;
@@ -112,9 +79,11 @@ export async function generateHeightmap(seed, options) {
   const heightMap = new Float32Array(hexGrid.length);
   
   // Center for radial gradient
-  const centerHex = { q: gridWidth / 2, r: gridHeight / 2, s: -gridWidth / 2 - gridHeight / 2 };
-  const centerPixel = hexToPixel(centerHex, hexSize);
-  const maxDist = Math.sqrt(centerPixel.x * centerPixel.x + centerPixel.y * centerPixel.y);
+  const centerCol = Math.floor(gridWidth / 2);
+  const centerRow = Math.floor(gridHeight / 2);
+  const centerHex = { col: centerCol, row: centerRow, q: centerCol, r: centerRow - Math.floor(centerCol / 2) };
+  const { x: centerX, y: centerY } = hexToPixelFlatOffset(centerHex, hexSize);
+  const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
   
   let min = Infinity;
   let max = -Infinity;
@@ -122,11 +91,11 @@ export async function generateHeightmap(seed, options) {
   // Generate elevation for each hex
   for (let i = 0; i < hexGrid.length; i++) {
     const hex = hexGrid[i];
-    const pixel = hexToPixel(hex, hexSize);
+    const { x: px, y: py } = hexToPixelFlatOffset(hex, hexSize);
     
     // Normalize coordinates for noise sampling
-    let nx = pixel.x / (gridWidth * hexSize) - 0.5;
-    let ny = pixel.y / (gridHeight * hexSize) - 0.5;
+    let nx = px / (gridWidth * hexSize) - 0.5;
+    let ny = py / (gridHeight * hexSize) - 0.5;
     let value = 0;
     let amp = amplitude;
     let freq = frequency;
@@ -140,8 +109,8 @@ export async function generateHeightmap(seed, options) {
     
     // Apply radial gradient for island effect
     if (gradientFalloff === 'circular') {
-      const dx = pixel.x - centerPixel.x;
-      const dy = pixel.y - centerPixel.y;
+      const dx = px - centerX;
+      const dy = py - centerY;
       const dist = Math.sqrt(dx * dx + dy * dy) / maxDist;
       let falloff = 1;
       
