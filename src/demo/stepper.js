@@ -235,11 +235,12 @@ class MapGeneratorStepper {
         break;
         
       case 1: // Mask Coastline
+        const seaLevel = 0.3;
         const coastlineResult = maskCoastline({
           hexGrid: this.mapData.hexGrid,
           heightMap: this.mapData.heightmap
         }, {
-          seaLevel: 0.3, // Lowered from 0.5 for more land
+          seaLevel,
           hexSize: 15, // Match the hexSize used in renderHexGrid
           smoothingIterations: 2,
           simplifyTolerance: 0.1
@@ -247,7 +248,8 @@ class MapGeneratorStepper {
         this.mapData.landMask = coastlineResult.landMask;
         this.mapData.coastlinePath = coastlineResult.coastlinePath;
         this.mapData.cornerMask = coastlineResult.cornerMask; // Store cornerMask
-        this.mapData.ringsPixel = coastlineResult.ringsPixel; // Store ringsPixel
+        this.mapData.ringsPixel = coastlineResult.ringsPixel;
+        this.mapData.seaLevel = seaLevel;
         // Debug hook: expose land mask
         if (typeof window !== 'undefined') {
           window.__coastlineMask = this.mapData.landMask;
@@ -386,6 +388,7 @@ class MapGeneratorStepper {
   renderHexGrid() {
     const hexGrid = this.mapData.hexGrid;
     const heightMap = this.mapData.heightmap;
+    const landMask = this.mapData.landMask;
     
     // Find grid bounds using offset coordinates
     let minCol = Infinity, maxCol = -Infinity;
@@ -413,22 +416,20 @@ class MapGeneratorStepper {
         <svg width="${width}" height="${height}" style="border: 1px solid #ccc; background: #f0f0f0;">
     `;
     
-    // Create a map for quick elevation lookup using offset coordinates
-    const elevationMap = new Map();
-    hexGrid.forEach((hex, index) => {
-      elevationMap.set(`${hex.col},${hex.row}`, heightMap[index]);
-    });
-    
     // Render each hex using offset coordinates
-    hexGrid.forEach(hex => {
-      const elevation = elevationMap.get(`${hex.col},${hex.row}`);
-      const color = this.getElevationColor(elevation);
-      
+    hexGrid.forEach((hex, index) => {
+      let color;
+      if (landMask) {
+        const isLand = landMask[index] === 1;
+        color = isLand ? "#000" : "#fff";
+      } else {
+        const elevation = heightMap[index];
+        color = this.getElevationColor(elevation);
+      }
       // Use offset coordinates for pixel conversion
       const pixel = hexToPixelFlatOffset({ col: hex.col, row: hex.row }, hexSize);
       const x = pixel.x - minX + hexSize;
       const y = pixel.y - minY + hexSize;
-      
       // Create hexagon path for flat-topped orientation
       const points = [];
       for (let i = 0; i < 6; i++) {
@@ -438,14 +439,13 @@ class MapGeneratorStepper {
         const py = y + hexSize * Math.sin(angle);
         points.push(`${px},${py}`);
       }
-      
       svg += `
         <polygon 
           points="${points.join(' ')}" 
           fill="${color}" 
           stroke="#333" 
           stroke-width="1"
-          title="Hex (${hex.col},${hex.row}) - Elevation: ${elevation.toFixed(3)}"
+          title="Hex (${hex.col},${hex.row})"
         />
       `;
     });
@@ -554,7 +554,7 @@ class MapGeneratorStepper {
     const hexGrid = this.mapData.hexGrid;
     const heightMap = this.mapData.heightmap;
     const landMask = this.mapData.landMask;
-    const seaLevel = 0.5; // Should match the sea level used in coastline generation
+    const seaLevel = this.mapData.seaLevel ?? 0.3;
     
     // Find grid bounds
     let minCol = Infinity, maxCol = -Infinity;
@@ -583,7 +583,7 @@ class MapGeneratorStepper {
     
     // Render each hex as black (land) or white (sea)
     hexGrid.forEach((hex, index) => {
-      const isLand = heightMap[index] >= seaLevel;
+      const isLand = landMask[index] === 1;
       const color = isLand ? "#000" : "#fff";
       
       // Use offset coordinates for pixel conversion

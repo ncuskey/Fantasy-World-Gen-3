@@ -498,3 +498,10 @@ This affects:
 - **API Documentation**: Comprehensive function documentation
 - **Tutorials**: Step-by-step guides for customization
 - **Examples**: Sample worlds and configurations 
+
+## [Unreleased]
+- Coastline and land mask generation now use a consistent sea level and mask logic for all visualizations.
+- Land/sea mask (landMask) is now used for tile coloring in both debug and main grid visualizations, ensuring agreement with corner dots.
+- The actual sea level used is now displayed in debug output.
+- Various bug fixes to ensure mask and visualization are always in sync.
+- (Known issue: If tiles and dots still don't match, further investigation is needed.) 

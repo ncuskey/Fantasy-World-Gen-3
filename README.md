@@ -135,3 +135,9 @@ The project includes comprehensive test infrastructure:
 ## License
 
 MIT License - see LICENSE file for details.
+
+## Land/Sea Mask and Coastline Visualization
+- Land/sea mask (`landMask`) is now used for all tile coloring in debug and main grid visualizations.
+- The sea level used for mask generation is now always displayed in debug output.
+- All visualizations (tiles and corner dots) now use the same mask logic for consistency.
+- (Known issue: If tiles and dots still don't match, further investigation is needed.)
