@@ -72,6 +72,9 @@ export function generateHeightmap(seed, options) {
   
   // Create hex grid
   const hexGrid = createHexGrid(gridWidth, gridHeight);
+  if (typeof window !== 'undefined') {
+    console.log('First hexGrid cell:', hexGrid[0]);
+  }
   
   // Calculate hex size based on grid dimensions
   const hexSize = Math.min(1.0 / gridWidth, 1.0 / gridHeight) * 2;
