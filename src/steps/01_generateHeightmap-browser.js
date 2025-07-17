@@ -8,6 +8,7 @@
  */
 
 import { generateHeightmapCore } from '../utils/generateHeightmapCore.js';
+import { generateHeightmapAzgaar } from './01_generateHeightmap.js';
 
 // Use CDN imports for browser compatibility
 import { createNoise2D } from 'https://cdn.skypack.dev/simplex-noise';
@@ -32,5 +33,7 @@ import seedrandom from 'https://cdn.skypack.dev/seedrandom';
 export function generateHeightmap(seed, options) {
   return generateHeightmapCore(seed, options, { createNoise2D, seedrandom });
 }
+
+export { generateHeightmapAzgaar };
 
 export default generateHeightmap; 

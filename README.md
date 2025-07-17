@@ -141,3 +141,7 @@ MIT License - see LICENSE file for details.
 - The sea level used for mask generation is now always displayed in debug output.
 - All visualizations (tiles and corner dots) now use the same mask logic for consistency.
 - (Known issue: If tiles and dots still don't match, further investigation is needed.)
+
+## Demo Visualization
+- The demo attempts to show both Azgaar-style and original heightmap visualizations side by side.
+- Only one grid is currently displayed due to an unresolved issue; further debugging is needed.

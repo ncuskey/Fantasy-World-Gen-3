@@ -6,6 +6,7 @@
  */
 
 import { generateHeightmapCore } from '../utils/generateHeightmapCore.js';
+import { generateHeightMap, computeLandMask, computeSignedDistanceField } from '../utils/azgaarHexMap.js';
 
 // Conditional imports for Node.js vs Browser environments
 let createNoise2D, seedrandom;
@@ -49,6 +50,21 @@ if (typeof window === 'undefined') {
  */
 export async function generateHeightmap(seed, options) {
   return generateHeightmapCore(seed, options, { createNoise2D, seedrandom });
+}
+
+/**
+ * Azgaar-style heightmap, land mask, and signed distance field generation for comparison.
+ * @param {string} seed
+ * @param {object} options - { gridWidth, gridHeight, ... }
+ * @returns {Promise<{ hexGrid, heightMap, landMask, signedDistanceField, featureIndex, neighborList, vertexList }>}
+ */
+export async function generateHeightmapAzgaar(seed, options) {
+  const width = options.gridWidth;
+  const height = options.gridHeight;
+  const { hexGrid, heightMap, featureIndex, neighborList, vertexList } = generateHeightMap(seed, width, height, options);
+  const landMask = computeLandMask(heightMap, options.seaLevel ?? 0.5);
+  const signedDistanceField = computeSignedDistanceField(landMask, width, height);
+  return { hexGrid, heightMap, landMask, signedDistanceField, featureIndex, neighborList, vertexList };
 }
 
 // TODO: Add Vitest tests for consistency

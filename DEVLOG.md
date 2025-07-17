@@ -505,3 +505,6 @@ This affects:
 - The actual sea level used is now displayed in debug output.
 - Various bug fixes to ensure mask and visualization are always in sync.
 - (Known issue: If tiles and dots still don't match, further investigation is needed.) 
+- Attempted side-by-side integration of Azgaar-style and original heightmap visualizations in the demo.
+- Azgaar-style heightmap function is now browser-exported and imported in the demo stepper.
+- Only one grid is currently displayed in the UI; further debugging is needed to resolve the visualization issue. 

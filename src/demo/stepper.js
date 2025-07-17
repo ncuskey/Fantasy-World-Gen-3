@@ -14,6 +14,7 @@ import placeSettlements from '../steps/05_placeSettlements.js';
 import generateRoads from '../steps/06_generateRoads.js';
 import generateLabels from '../steps/07_generateLabels.js';
 import renderMap from '../steps/08_renderMap.js';
+import { generateHeightmapAzgaar } from '../steps/01_generateHeightmap-browser.js';
 
 class MapGeneratorStepper {
   constructor(containerId) {
@@ -228,9 +229,21 @@ class MapGeneratorStepper {
         });
         this.mapData.hexGrid = heightmapResult.hexGrid;
         this.mapData.heightmap = heightmapResult.heightMap;
+        // Azgaar-style heightmap for comparison
+        this.mapData.azgaar = await generateHeightmapAzgaar('fantasy-world-seed', {
+          gridWidth: 32,
+          gridHeight: 32,
+          octaves: 6,
+          persistence: 0.5,
+          lacunarity: 2.0,
+          frequency: 1.0,
+          amplitude: 1.0,
+          seaLevel: 0.3
+        });
         // Debug hook: expose heightmap
         if (typeof window !== 'undefined') {
           window.__heightmap = this.mapData.heightmap;
+          window.__azgaar = this.mapData.azgaar;
         }
         break;
         
@@ -367,8 +380,13 @@ class MapGeneratorStepper {
     
     preview += '</ul>';
 
-    // Add hex grid visualization if we have heightmap data
-    if (this.mapData.hexGrid && this.mapData.heightmap) {
+    // Add side-by-side hex grid visualizations if we have both
+    if (this.mapData.hexGrid && this.mapData.heightmap && this.mapData.azgaar) {
+      preview += '<div style="display: flex; gap: 40px;">';
+      preview += `<div><h4>Original Heightmap</h4>${this.renderHexGrid()}</div>`;
+      preview += `<div><h4>Azgaar Heightmap</h4>${this.renderHexGrid(this.mapData.azgaar)}</div>`;
+      preview += '</div>';
+    } else if (this.mapData.hexGrid && this.mapData.heightmap) {
       preview += this.renderHexGrid();
     }
     
@@ -385,10 +403,13 @@ class MapGeneratorStepper {
     previewArea.innerHTML = preview;
   }
 
-  renderHexGrid() {
-    const hexGrid = this.mapData.hexGrid;
-    const heightMap = this.mapData.heightmap;
-    const landMask = this.mapData.landMask;
+  renderHexGrid(dataOverride) {
+    const data = dataOverride || this.mapData;
+    const hexGrid = data.hexGrid;
+    // Support both heightmap (original) and heightMap (Azgaar)
+    const heightMap = data.heightmap || data.heightMap;
+    // Support both landMask (original and Azgaar)
+    const landMask = data.landMask;
     
     // Find grid bounds using offset coordinates
     let minCol = Infinity, maxCol = -Infinity;
